@@ -533,16 +533,54 @@ test('centring costs uprights, because the rear ballast loses its lever arm', ()
 
 /* ------------------- the wall bearing on the ground -------------------- */
 
-test('a wall bearing inside the baseplate footprint changes nothing at all', () => {
-  /* The key result. Its bearing point is 270 mm forward, well inside the
-   * 500 mm reach, so at the point of overturning that contact is already
-   * lifting off and carrying nothing. Same answer either way. */
+test('the wall cannot sit lower than the top of the baseplate under it', () => {
+  // asked for ground level, but the plate reaches 500 mm forward under the wall
+  const L = W.layout({ ...baseline, wallBottom: 0, plateThickness: 0.025 });
+  assert.equal(L.wallOverPlate, true);
+  near(L.minWallBottom, 0.025);
+  near(L.wallBottom, 0.025);
+  near(L.wallBottomAsked, 0);
+  assert.equal(L.wallBottomRaised, true);
+  assert.equal(L.restsOnPlate, true);
+
+  // and the wind arm moves up with it
+  near(L.wallCentreHeight, 0.025 + 2.5);
+  near(L.wallTop, 0.025 + 5);
+
+  const r = W.solve({ ...baseline, wallBottom: 0, plateThickness: 0.025 });
+  assert.match(r.warnings.join(' '), /raised to 25 mm/);
+});
+
+test('a thicker baseplate pushes the wall — and the wind load — higher', () => {
+  const thin = W.solve({ ...baseline, wallBottom: 0, plateThickness: 0.012 });
+  const thick = W.solve({ ...baseline, wallBottom: 0, plateThickness: 0.08, uprights: 6 });
+  const thinAt6 = W.solve({ ...baseline, wallBottom: 0, plateThickness: 0.012, uprights: 6 });
+
+  near(thin.layout.wallBottom, 0.012);
+  near(thick.layout.wallBottom, 0.08);
+  assert.ok(thick.byCase.forward.moments.windMoment > thinAt6.byCase.forward.moments.windMoment);
+  assert.ok(thick.limitingWindSpeed < thinAt6.limitingWindSpeed);
+});
+
+test('the wall is left alone when the baseplate does not reach under it', () => {
+  // plate stops at the truss face, so nothing is in the way
+  const L = W.layout({ ...baseline, wallBottom: 0, plateFront: 0.15 });
+  assert.equal(L.wallOverPlate, false);
+  near(L.minWallBottom, 0);
+  near(L.wallBottom, 0);
+  assert.equal(L.wallBottomRaised, false);
+  assert.equal(L.restsOnPlate, false);
+});
+
+test('bearing on the baseplate is internal, so it changes nothing', () => {
+  /* The wall resting on the plate transfers load inside the tipping body — the
+   * weight still acts at the same place, so the moments are untouched. */
   const hung = W.solve({ ...baseline, wallBottom: 0 });
   const borne = W.solve({ ...baseline, wallBottom: 0, wallOnGround: true });
 
-  near(borne.layout.wallFootX, 0.27); // 300/2 + 120
-  assert.equal(borne.layout.bearsOnGround, true);
-  assert.equal(borne.layout.pivotIsWallFoot, false, 'plate still reaches further');
+  assert.equal(borne.layout.restsOnPlate, true);
+  assert.equal(borne.layout.bearsOnPlate, true);
+  assert.equal(borne.layout.bearsOnGround, false, 'it is on the plate, not the ground');
   near(borne.layout.frontPivotX, 0.5);
 
   assert.equal(borne.uprights, hung.uprights);
@@ -552,8 +590,25 @@ test('a wall bearing inside the baseplate footprint changes nothing at all', () 
   near(borne.ballastNeededPerUpright, hung.ballastNeededPerUpright, 1e-12);
 });
 
+test('if the wall can reach the ground at all, its footing is always outside the plate', () => {
+  /* Reaching the ground requires the plate to stop at or before the truss face,
+   * and the wall's footing is a cabinet depth forward of that face — so it is
+   * necessarily further out. There is no "bears on the ground but makes no
+   * difference" case to worry about. */
+  for (const plateFront of [0, 0.05, 0.1, 0.15]) {
+    const L = W.layout({ ...baseline, wallBottom: 0, plateFront, wallOnGround: true });
+    if (!L.bearsOnGround) continue;
+    assert.ok(
+      L.wallFootX > L.plateFront,
+      `plateFront ${plateFront}: footing ${L.wallFootX} should be outside ${L.plateFront}`
+    );
+    assert.equal(L.pivotIsWallFoot, true);
+  }
+});
+
 test('a wall bearing outside the footprint moves the tipping edge out to it', () => {
-  // baseplate reaches only 150 mm forward; the wall's foot reaches 270 mm
+  /* Baseplate stops at the truss face (150 mm), so nothing is under the wall
+   * and it can sit on the ground; its foot reaches 270 mm. */
   const shallow = { ...baseline, plateFront: 0.15, wallBottom: 0 };
   const hung = W.solve(shallow);
   const borne = W.solve({ ...shallow, wallOnGround: true });

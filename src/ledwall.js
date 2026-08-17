@@ -147,9 +147,9 @@
 
     var wallWidth = nonNeg(input.wallWidth);
     var wallHeight = nonNeg(input.wallHeight);
-    var wallBottom = nonNeg(input.wallBottom);
     var wallDepth = nonNeg(input.wallDepth);
     var arealMass = nonNeg(input.wallArealMass);
+    var wallBottomAsked = nonNeg(input.wallBottom);
 
     var trussHeight = nonNeg(input.trussHeight);
     var trussDepth = nonNeg(input.trussDepth);
@@ -161,32 +161,45 @@
     var plateMass = nonNeg(input.plateMass);
     var ballastMass = nonNeg(input.ballastMass);
 
-    /* Heights of the plate and the ballast stack. These make no difference to
-     * overturning — about an edge on the ground only the horizontal offsets
-     * matter — but the simulation and the drawing both need them. */
+    /* The plate's thickness sets how high the wall has to start when the plate
+     * runs under it. The ballast stack height only matters to the drawing and
+     * the simulation — about an edge on the ground, only horizontal offsets
+     * change the moments. */
     var plateThickness = positive(input.plateThickness, 0.02);
     var ballastHeight = positive(input.ballastHeight, 0.18);
 
     var area = wallWidth * wallHeight;
     var wallMass = area * arealMass;
 
-    /* A wall whose bottom row sits down on the ground (or on a sill at ground
-     * level) bears on it along its own footprint, and the front of that
-     * footprint can be further forward than the baseplate reaches. If it is,
-     * that becomes the edge the whole thing tips about.
+    /* The wall hangs off the front face of the truss, so its footprint runs
+     * from the truss face out to the front of the cabinets. */
+    var wallBackX = trussDepth / 2;
+    var wallFootX = wallBackX + wallDepth;
+    var wallX = wallBackX + wallDepth / 2;
+
+    /* Where the baseplate reaches out under the wall, the wall cannot sit any
+     * lower than the top of the plate — the plate is in the way. So the lowest
+     * the bottom of the wall can go is the plate's own thickness. */
+    var wallOverPlate = wallBackX < plateFront - EPS;
+    var minWallBottom = wallOverPlate ? plateThickness : 0;
+    var wallBottom = Math.max(wallBottomAsked, minWallBottom);
+    var wallBottomRaised = wallBottom > wallBottomAsked + EPS;
+    var restsOnPlate = wallOverPlate && wallBottom <= plateThickness + EPS && wallMass > 0;
+
+    /* Resting on the ground is a different matter from resting on the plate.
+     * Bearing on the plate is internal to the tipping body and changes nothing.
+     * Bearing on the *ground* forward of the plate's front edge moves the edge
+     * the whole thing tips about out to the wall's own footing.
      *
-     * When the bearing point falls *inside* the baseplate footprint it changes
-     * nothing: at the point of overturning the body is rotating about the plate
-     * edge, so every contact behind that edge is already lifting off and
-     * carrying nothing. */
+     * And where a ground bearing point falls inside the baseplate footprint it
+     * changes nothing either: at the point of overturning the body is rotating
+     * about the plate edge, so every contact behind it is already lifting off
+     * and carrying nothing. */
     var wallOnGround = !!input.wallOnGround;
-    var wallFootX = trussDepth / 2 + wallDepth; // front face, at ground level
-    var bearsOnGround = wallOnGround && wallBottom <= 1e-9 && wallMass > 0;
+    var bearsOnGround = wallOnGround && wallBottom <= EPS && wallMass > 0;
+    var bearsOnPlate = wallOnGround && restsOnPlate;
     var frontPivotX = bearsOnGround ? Math.max(plateFront, wallFootX) : plateFront;
 
-    /* The wall hangs off the front face of the truss, so its mass sits this
-     * far forward of the truss centreline. */
-    var wallX = trussDepth / 2 + wallDepth / 2;
     var wallCentreHeight = wallBottom + wallHeight / 2;
 
     var trussMass = trussHeight * trussLinearMass;
@@ -218,7 +231,14 @@
       trussLinearMass: trussLinearMass,
 
       wallOnGround: wallOnGround,
+      wallBackX: wallBackX,
       wallFootX: wallFootX,
+      wallOverPlate: wallOverPlate,
+      minWallBottom: minWallBottom,
+      wallBottomAsked: wallBottomAsked,
+      wallBottomRaised: wallBottomRaised,
+      restsOnPlate: restsOnPlate,
+      bearsOnPlate: bearsOnPlate,
       bearsOnGround: bearsOnGround,
       /* The edge forward tipping happens about — the plate's front edge, or the
        * wall's own footing when that reaches further out. */
@@ -529,7 +549,14 @@
             'before any wind arrives.'
         );
       }
-      if (L.wallOnGround && !L.bearsOnGround && L.wallBottom > 1e-9) {
+      if (L.wallBottomRaised) {
+        warnings.push(
+          'The bottom of the wall has been raised to ' +
+            (L.wallBottom * 1000).toFixed(0) + ' mm: the baseplate runs out under the ' +
+            'wall, so it cannot sit any lower than the top of the plate.'
+        );
+      }
+      if (L.wallOnGround && !L.bearsOnGround && !L.bearsOnPlate && L.wallBottom > EPS) {
         warnings.push(
           'The wall is set to bear on the ground but starts ' +
             (L.wallBottom * 1000).toFixed(0) + ' mm above it, so it is not bearing on ' +

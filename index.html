@@ -358,6 +358,7 @@
                 <input id="wallBottom" type="number" inputmode="decimal" step="any" min="0" />
                 <select id="wallBottom-unit" class="unit" data-units="length" aria-label="Wall bottom unit"></select>
               </div>
+              <p class="hint" id="wall-bottom-hint"></p>
             </div>
 
             <div class="field">
@@ -374,7 +375,7 @@
 
             <label class="check">
               <input type="checkbox" id="wallOnGround" />
-              <span>Bottom of the wall bears on the ground</span>
+              <span>Bottom of the wall rests on what's under it</span>
             </label>
             <p class="hint" id="wall-bearing-hint"></p>
           </fieldset>
@@ -464,6 +465,18 @@
                 <input id="ledPlateWidth" type="number" inputmode="decimal" step="any" min="0" />
                 <select id="ledPlateWidth-unit" class="unit" data-units="length" aria-label="Baseplate width unit"></select>
               </div>
+            </div>
+
+            <div class="field">
+              <label for="ledPlateThickness">Baseplate thickness</label>
+              <div class="input-row">
+                <input id="ledPlateThickness" type="number" inputmode="decimal" step="any" min="0" />
+                <select id="ledPlateThickness-unit" class="unit" data-units="length" aria-label="Baseplate thickness unit"></select>
+              </div>
+              <p class="hint">
+                Where the plate runs under the wall, this is how high the bottom of the wall
+                has to start.
+              </p>
             </div>
 
             <div class="field">
@@ -686,13 +699,14 @@
                 bays carry less than the middle ones.
               </li>
               <li>
-                If the wall's bottom row bears on the ground, that only helps where its own
-                footing reaches further forward than the baseplate does — and then only if
-                the cabinets can actually take being stood on, which is a load path most are
-                not designed for. Where the bearing point falls inside the baseplate, it
-                makes no difference at all: the contact lifts off the instant the thing
-                starts to go over. It does relieve weight and bending in the truss either
-                way, which is a separate question from overturning.
+                Where the baseplate runs under the wall, the bottom of the wall cannot sit
+                lower than the top of the plate, and the app raises it to suit. Resting on
+                the plate makes no difference to overturning — the plate is part of the same
+                body, so it is only moving load about inside it. Resting on the
+                <em>ground</em>, which needs the plate to stop short of the wall, does help:
+                the wall's own footing becomes the edge it tips about. Either way it needs
+                cabinets that can take being stood on, which is a load path most are not
+                designed for, and level ground for the sharing to be anything like even.
               </li>
               <li>
                 Ground is flat, level and hard, and the baseplates cannot slide or sink. No

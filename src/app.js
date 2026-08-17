@@ -67,6 +67,7 @@
     { id: 'plateFront', kind: 'length', key: 'bf', metric: [500, 'mm'], imperial: [20, 'in'] },
     { id: 'plateBack', kind: 'length', key: 'bb', metric: [1000, 'mm'], imperial: [39, 'in'] },
     { id: 'ledPlateWidth', kind: 'length', key: 'bw', metric: [600, 'mm'], imperial: [24, 'in'] },
+    { id: 'ledPlateThickness', kind: 'length', key: 'bt', metric: [20, 'mm'], imperial: [0.75, 'in'] },
     { id: 'ledPlateMass', kind: 'mass', key: 'bm', metric: [60, 'kg'], imperial: [132, 'lb'] },
     { id: 'ballastMass', kind: 'mass', key: 'bl', metric: [300, 'kg'], imperial: [660, 'lb'] },
 
@@ -1832,6 +1833,7 @@
       plateFront: plateFront,
       plateBack: plateBack,
       plateWidth: v('ledPlateWidth'),
+      plateThickness: v('ledPlateThickness'),
       plateMass: v('ledPlateMass'),
       ballastMass: v('ballastMass'),
 
@@ -2502,23 +2504,37 @@
 
     var L0 = result.layout;
 
-    /* Spell out what bearing on the ground is buying, since the answer is
-     * "nothing" more often than people expect. */
+    /* What the entered height actually resolved to, and why. */
+    var bottomHint = '';
+    if (L0.wallBottomRaised) {
+      bottomHint = 'Raised to ' + fmtLength(L0.wallBottom) +
+        ' — the baseplate runs under the wall, so it cannot start any lower than the top ' +
+        'of the plate.';
+    } else if (L0.restsOnPlate) {
+      bottomHint = 'Sitting right on the baseplate.';
+    } else if (L0.wallBottom > 1e-9) {
+      bottomHint = fmtLength(L0.wallBottom) + ' of clear air under the wall.';
+    } else {
+      bottomHint = 'Down on the ground — nothing of the baseplate reaches under it.';
+    }
+    $('wall-bottom-hint').textContent = bottomHint;
+
+    /* What bearing is buying, which is often nothing. Note there is no
+     * "on the ground but no difference" case: reaching the ground at all means
+     * the plate stops short of the wall, so the wall's footing is always the
+     * outermost contact. */
     var bearingHint = '';
     if (!L0.wallOnGround) {
       bearingHint = 'The truss carries the whole wall.';
-    } else if (!L0.bearsOnGround) {
-      bearingHint = 'Set the bottom of the wall to zero for this to do anything — ' +
-        'as it is, the wall is not touching the ground.';
-    } else if (L0.pivotIsWallFoot) {
-      bearingHint = 'The wall\u2019s own footing reaches ' + fmtLength(L0.wallFootX) +
-        ' forward, past the baseplate, so that is now the edge it tips about — ' +
+    } else if (L0.bearsOnGround) {
+      bearingHint = 'It reaches the ground ' + fmtLength(L0.wallFootX) +
+        ' forward, past the baseplate, so that footing is now the edge it tips about — ' +
         'every lever arm gains ' + fmtLength(L0.wallFootX - L0.plateFront) + '.';
+    } else if (L0.bearsOnPlate) {
+      bearingHint = 'It bears on the baseplate, which is part of the same structure — ' +
+        'so no change to overturning, though it does take load and bending out of the truss.';
     } else {
-      bearingHint = 'No difference to overturning: the wall bears ' +
-        fmtLength(L0.wallFootX) + ' forward, inside the baseplate\u2019s ' +
-        fmtLength(L0.plateFront) + ' reach, so that contact lifts off as soon as it starts ' +
-        'to go over.';
+      bearingHint = 'Nothing under it to bear on: bring the bottom of the wall down first.';
     }
     $('wall-bearing-hint').textContent = bearingHint;
 

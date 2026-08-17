@@ -175,31 +175,37 @@ forward lengthens the arm that resists the governing case, whereas reaching back
 only helps the case that already has margin to spare. The default, 500 forward
 and 1 m back, wants 6.
 
-### Does the wall resting on the ground help?
+### How low the wall can sit, and whether resting on something helps
 
-Usually not, and the reason is worth knowing. There are two cases and they point
-opposite ways:
+**The baseplate is in the way.** Where the plate reaches out under the wall, the
+bottom of the wall cannot start any lower than the top of the plate — so the
+baseplate's thickness is a floor on the trim height, and it is an input for that
+reason. Ask for less and the app raises it, says so, and carries the raised
+figure through: the wall goes up, and with it the height the wind acts at.
 
-**Bearing point inside the baseplate footprint** — the normal case, since the
-cabinets sit close to the truss. **No change whatsoever.** At the point of
-overturning the body is rotating about the plate's front edge, so every contact
-behind that edge is already lifting off and carrying nothing. The reaction under
-the wall has gone to zero before the limit is reached, and the moment equation is
-identical to the fully-hung case. The tests check this holds exactly — same
-uprights, same ballast, same limiting wind, to the last decimal.
+Whether the wall bearing down helps depends on **what it is bearing on**, and the
+geometry decides which case you are in:
 
-**Bearing point forward of the front edge** — then the ground stops that point
-descending, so the wall's own footing becomes the edge you tip about, and it is
-further out. Every lever arm in the calculation grows by the difference. On the
-reference wall with the baseplate cut back to 150 mm, the wall's foot reaches
-270 mm, and that 120 mm takes it from **10 uprights to 7** — and flips the wall's
-own weight from pulling it over to holding it down.
+**On the baseplate** — the normal case, since the plate almost always runs under
+the cabinets. **No change to overturning at all.** The plate is part of the
+tipping body, so the wall resting on it just moves load around inside that body;
+the weight still acts in the same place and the moments are untouched. The tests
+check this holds exactly — same uprights, same ballast, same limiting wind, to
+the last decimal.
 
-So it only helps when the baseplate is the shorter of the two reaches, which is
-exactly the case where you are short of room in front. Two caveats: the cabinets
-have to be able to take being stood on, which is a load path most are not
-designed for, and on uneven ground the sharing between plate and wall is
-anyone's guess. Bearing does relieve vertical load and bending in the truss
+**On the ground** — only possible when the plate stops short of the wall, and
+then it always helps. The ground stops the wall's footing descending, so that
+footing becomes the edge you tip about, and every lever arm grows by the
+difference. There is no in-between case to worry about: reaching the ground
+requires the plate to end at or before the truss face, and the wall's footing is
+a cabinet depth forward of that face, so it is *necessarily* the outermost
+contact. On the reference wall with the plate cut back to the truss face, the
+footing at 270 mm takes it from **10 uprights to 7**, and flips the wall's own
+weight from pulling it over to holding it down.
+
+Two caveats on ever relying on that: the cabinets have to take being stood on,
+which is a load path most are not designed for, and on uneven ground the sharing
+is anyone's guess. Bearing does relieve vertical load and bending in the truss
 either way — a real benefit, but a different question from overturning.
 
 **Wind is what decides it**, and the two directions are not symmetric:
