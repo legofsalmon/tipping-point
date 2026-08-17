@@ -2152,10 +2152,10 @@
   function buildLedSideView(result) {
     var L = result.layout;
     // A bay is far taller than it is deep, so this view is portrait
-    var VW = 230;
+    var VW = 250;
     var VH = 320;
-    var padL = 30;
-    var padR = 42;
+    var padL = 54;
+    var padR = 56;
     var padT = 22;
     var padB = 52;
     var dir = result.governingCase.moments.dir;
@@ -2273,13 +2273,36 @@
       })
     );
 
-    // labels
+    /* Label the two heights the drawing is built from. Without them there is
+     * nothing on the picture that visibly answers to the height inputs. */
     parts.push(
-      text(X(L.trussDepth / 2 + L.wallDepth) + 4, Y(L.wallTop) + 11, 'LED', 'dg-label dg-label--muted')
+      text(
+        X(L.trussDepth / 2 + L.wallDepth) + 4,
+        Y(L.wallTop) + 11,
+        'LED ' + fmtLength(L.wallHeight),
+        'dg-label dg-label--muted'
+      )
     );
     parts.push(
-      text(X(-L.trussDepth / 2) - 4, Y(L.trussHeight) + 11, 'truss', 'dg-label dg-label--muted', 'end')
+      text(
+        X(-L.trussDepth / 2) - 4,
+        Y(L.trussHeight) - 4,
+        'truss ' + fmtLength(L.trussHeight),
+        'dg-label dg-label--muted',
+        'end'
+      )
     );
+    // only when it is clear of the pivot label down at ground level
+    if (L.wallBottom > 1e-6 && groundY - Y(L.wallBottom) > 16) {
+      parts.push(
+        text(
+          X(L.trussDepth / 2 + L.wallDepth) + 4,
+          Y(L.wallBottom) - 2,
+          fmtLength(L.wallBottom) + ' up',
+          'dg-label dg-label--muted'
+        )
+      );
+    }
 
     return tag(
       'svg',
@@ -2359,7 +2382,7 @@
     );
 
     // spacing dimension between the first two uprights
-    if (n > 1) {
+    if (n > 1 && result.ok && result.stabilityAchievable) {
       var x0 = X(0);
       var x1 = X(result.spacing);
       var dimY = groundY + 16;
@@ -2376,19 +2399,25 @@
       );
     }
 
-    parts.push(
-      text(VW / 2, 16, n + (n === 1 ? ' upright' : ' uprights') + ' across ' +
-        fmtLength(L.wallWidth), 'dg-label', 'middle')
-    );
+    /* Only state a count when there is one to state — asserting "6 uprights"
+     * next to an answer panel showing a dash is worse than saying nothing. */
+    var caption = !result.ok
+      ? 'geometry not valid — see the notes above'
+      : !result.stabilityAchievable
+        ? 'no upright count works — see the notes above'
+        : n + (n === 1 ? ' upright' : ' uprights') + ' across ' + fmtLength(L.wallWidth);
+    parts.push(text(VW / 2, 16, caption, 'dg-label', 'middle'));
 
     return tag(
       'svg',
       {
         viewBox: '0 0 ' + VW + ' ' + VH,
         role: 'img',
-        'aria-label':
-          n + ' uprights spaced ' + fmtLength(result.spacing) + ' apart behind a ' +
-          fmtLength(L.wallWidth) + ' by ' + fmtLength(L.wallHeight) + ' wall.',
+        'aria-label': caption + ', behind a ' + fmtLength(L.wallWidth) + ' by ' +
+          fmtLength(L.wallHeight) + ' wall' +
+          (result.ok && result.stabilityAchievable
+            ? ', spaced ' + fmtLength(result.spacing) + ' apart.'
+            : '.'),
         xmlns: 'http://www.w3.org/2000/svg'
       },
       parts.join('')
