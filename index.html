@@ -50,6 +50,59 @@
           <ul class="notes" id="out-notes"></ul>
         </section>
 
+        <!-- --------------------------------------------------- simulation -->
+        <section class="panel panel--sim" aria-labelledby="sim-heading">
+          <h2 id="sim-heading">Give it a push</h2>
+
+          <div class="sim-stage">
+            <canvas id="sim-canvas" role="img" aria-label="Live simulation of the assembly being pushed."></canvas>
+            <p class="sim-tip" id="sim-tip">
+              <span>Drag anywhere to push — or set a force below and press <em>Apply</em>.</span>
+            </p>
+          </div>
+
+          <p class="sim-status" id="sim-status"></p>
+          <p class="visually-hidden" id="sim-announce" role="status" aria-live="polite"></p>
+
+          <div class="balance" id="sim-balance">
+            <div class="balance-row">
+              <span class="balance-label">Righting</span>
+              <span class="balance-track"><span class="balance-fill balance-fill--righting" id="bar-righting"></span></span>
+              <span class="balance-value" id="val-righting">—</span>
+            </div>
+            <div class="balance-row">
+              <span class="balance-label">Overturning</span>
+              <span class="balance-track"><span class="balance-fill balance-fill--over" id="bar-over"></span></span>
+              <span class="balance-value" id="val-over">—</span>
+            </div>
+          </div>
+
+          <div class="sim-controls">
+            <div class="sim-force">
+              <label for="sim-force-input">
+                Push with <output id="sim-force-out" for="sim-force-input"></output>
+              </label>
+              <input
+                type="range"
+                id="sim-force-input"
+                min="0"
+                max="160"
+                step="1"
+                value="105"
+                aria-describedby="sim-force-out"
+              />
+            </div>
+            <div class="sim-buttons">
+              <button type="button" id="sim-apply" aria-pressed="false" class="btn-primary">Apply</button>
+              <button type="button" id="sim-reset">Stand it up</button>
+            </div>
+            <label class="check">
+              <input type="checkbox" id="sim-base-held" checked />
+              <span>Base held, so it can't slide away</span>
+            </label>
+          </div>
+        </section>
+
         <!-- ------------------------------------------------------ inputs -->
         <section class="panel panel--inputs" aria-labelledby="inputs-heading">
           <h2 id="inputs-heading">The object</h2>
@@ -301,6 +354,13 @@
                 It answers "will it tip", not "will it break". A tall pole may bend or shear
                 at its base well before the plate lifts.
               </li>
+              <li>
+                In the simulation, the push keeps pointing the same way as the object turns,
+                and the pivot edge is taken as staying put once it has lifted. A push aimed
+                at a corner is simulated as the equivalent flat-on problem, which gets the
+                tipping point and the lean exactly right but only approximates how quickly
+                it falls.
+              </li>
             </ul>
           </details>
         </section>
@@ -314,6 +374,7 @@
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
     <script src="src/physics.js"></script>
+    <script src="src/sim.js"></script>
     <script src="src/app.js"></script>
     <script>
       // Service worker gives us offline use once installed. It needs a real

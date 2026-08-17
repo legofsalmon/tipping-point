@@ -9,6 +9,11 @@ Enter the weights and sizes, and it tells you the force needed at the top of the
 pole, which way is easiest to push, how far it can lean before it goes over on
 its own, and whether it will just slide across the floor instead.
 
+Then you can actually push it. Drag the object, or dial in a force and hold it,
+and watch the thing lift onto its edge, teeter, drop back, or go over — with the
+two moments shown fighting each other in real time. Everything updates live: nudge
+a weight while it is mid-lean and the balance shifts under it.
+
 Runs in any modern browser — macOS, Windows, Android, iOS — with no build step,
 no server and no network once it has loaded.
 
@@ -141,6 +146,48 @@ against a kerb.
   angle: substituting `F` back in gives `N = W·h·c·cosθ / (h·c·cosθ − d·sinθ)`,
   so a push can pivot the object or slide it, but never lift it clear.
 
+### Pushing it for real
+
+The static formula says whether it goes; the simulation says what happens next.
+It integrates the assembly rotating about its pivot edge:
+
+```
+I·θ̈ = F·R·sin(γ + θ − θp)   the push
+     − W·r·cos(ψ + θ)        its own weight holding it down
+     − m·a·h_cm(θ)           relief from the base sliding away
+```
+
+with `θ` the lean from upright, `r, ψ` locating the centre of mass from the pivot
+and `R, γ` locating the point being pushed. `I` is the real moment of inertia of
+the assembly about that edge — plate as a slab, pole as a rod offset from it,
+anything on top as a point mass.
+
+At `θ = 0` with the base held, this collapses back to `F = W·d/h`. That is worth
+stating plainly: the simulation and the calculator are separate pieces of code
+that have to agree, and [the tests](test/sim.test.mjs) check they do — analytically
+and by bisecting the simulation to find the force at which it actually falls.
+
+Three things the simulation shows that a single number cannot:
+
+- **Momentum counts.** Release the push before the balance point and it can still
+  go over, carried by what it has already gained. That is why a knock tips things
+  a steady push of the same size will not, and it is what the energy figure is
+  for — feed the assembly exactly that much rotational energy and it *just* makes
+  it over. There is a test for that too.
+- **Sliding relieves tipping.** A base free to skate away accelerates, and that
+  acceleration acts through the centre of mass as a moment *against* tipping. On a
+  slippery enough floor it slides instead of going over. Untick **Base held** to
+  watch it happen. With the base held there is no acceleration and the term
+  vanishes, which is the case the headline number describes.
+- **Weight high up costs stability, not force.** Move weight from the plate to the
+  top of the pole, keeping the total the same, and the steady force needed does not
+  change at all — `W·d/h` knows nothing about how high the weight sits. But the lean
+  it can survive shrinks, and the knock needed to topple it drops sharply.
+
+Once it has lifted, the pivot edge is taken as fixed, and a corner push is
+simulated as the equivalent flat-on problem — exact for the tipping point and the
+lean, approximate only for how fast it falls.
+
 ### What it assumes
 
 - Everything is rigid, and the pole is fixed solidly to the plate.
@@ -171,25 +218,32 @@ step that fails is `configure-pages`, and nothing else is affected.
 
 ```
 index.html                 markup, and the only page
-src/physics.js             the maths — no DOM, no dependencies
-src/app.js                 form handling, rendering, the SVG diagrams
+src/physics.js             the statics — no DOM, no dependencies
+src/sim.js                 the dynamics — also pure, also testable
+src/app.js                 form handling, rendering, SVG diagrams, canvas sim
 src/styles.css             styling, light and dark
 sw.js                      service worker, for offline use
 manifest.webmanifest       PWA manifest, for installing
 icons/                     generated app icons
-test/physics.test.mjs      tests for the physics
+test/physics.test.mjs      tests for the statics
+test/sim.test.mjs          tests for the dynamics, incl. agreement with the statics
 tools/make-icons.mjs       draws and encodes the icons from scratch
 tools/build-single-file.mjs bundles everything into dist/
 tools/serve.mjs            static file server for local use
 ```
 
-`src/physics.js` is deliberately free of anything browser-specific, so the test
-suite loads the exact file the app runs. Expected values in the tests are worked
-by hand from the moment balance, and the claimed best-push angle is checked
-against a brute-force sweep.
+`src/physics.js` and `src/sim.js` are deliberately free of anything
+browser-specific, so the test suite loads the exact files the app runs. Expected
+values are worked by hand from the moment balance rather than copied out of the
+implementation; the claimed best-push angle is checked against a brute-force
+sweep, and the simulation is checked against the statics both analytically and by
+bisection.
 
 State is kept in `localStorage`, and **Copy link** puts the whole setup in the
 URL so a particular scenario can be bookmarked or sent to someone.
+
+The simulation only asks for animation frames while something is moving — a
+still object costs nothing, and it stops entirely when the tab is hidden.
 
 ## Licence
 

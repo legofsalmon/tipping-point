@@ -14,6 +14,7 @@
   --muted: #5b6472;
   --accent: #2563eb;
   --accent-soft: #e6edfd;
+  --on-accent: #ffffff;
   --force: #d94f0a;
   --force-soft: #fdecdf;
   --ok: #15803d;
@@ -48,6 +49,7 @@
     --muted: #99a2b1;
     --accent: #6c9cff;
     --accent-soft: #1b2740;
+    --on-accent: #0e1116;
     --force: #ff9147;
     --force-soft: #33210f;
     --ok: #4ec97a;
@@ -69,6 +71,7 @@
   --muted: #99a2b1;
   --accent: #6c9cff;
   --accent-soft: #1b2740;
+  --on-accent: #0e1116;
   --force: #ff9147;
   --force-soft: #33210f;
   --ok: #4ec97a;
@@ -141,21 +144,28 @@ body {
   .layout {
     grid-template-columns: 396px minmax(0, 1fr);
   }
+  /* Inputs run the full height of the left column; everything else stacks
+     down the right in DOM order. Keep the span in step with the number of
+     right-hand panels. */
   .panel--inputs {
     grid-column: 1;
-    grid-row: 1 / span 3;
+    grid-row: 1 / span 4;
   }
   .panel--answer {
     grid-column: 2;
     grid-row: 1;
   }
-  .panel--diagram {
+  .panel--sim {
     grid-column: 2;
     grid-row: 2;
   }
-  .panel--detail {
+  .panel--diagram {
     grid-column: 2;
     grid-row: 3;
+  }
+  .panel--detail {
+    grid-column: 2;
+    grid-row: 4;
   }
 }
 
@@ -179,10 +189,10 @@ body {
 
 /* ---------------------------------------------------------------- answer */
 
+/* Deliberately not sticky: pinned to the top it floated over the simulation
+ * canvas and swallowed presses meant for the object. The simulation panel
+ * carries its own live force readout, so nothing is lost. */
 .panel--answer {
-  position: sticky;
-  top: 0;
-  z-index: 20;
   border-color: var(--border-strong);
 }
 
@@ -525,6 +535,196 @@ button:hover {
 
 button:active {
   transform: translateY(1px);
+}
+
+/* ------------------------------------------------------------ simulation */
+
+.sim-stage {
+  position: relative;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+#sim-canvas {
+  display: block;
+  width: 100%;
+  /* Taller than it looks like it wants to be: a pole is tall upright, and the
+     camera needs the height to keep it at a decent size. */
+  aspect-ratio: 4 / 3;
+  /* stop the page from scrolling when a finger drags on the canvas */
+  touch-action: none;
+  cursor: grab;
+}
+
+#sim-canvas.is-pushing {
+  cursor: grabbing;
+}
+
+.sim-tip {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 7px;
+  margin: 0;
+  text-align: center;
+  font-size: 0.76rem;
+  color: var(--muted);
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+/* sits over the ground hatching, so give it something to sit on */
+.sim-tip span {
+  background: var(--surface-2);
+  padding: 2px 9px;
+  border-radius: 999px;
+}
+
+.sim-tip.is-hidden {
+  opacity: 0;
+}
+
+.sim-status {
+  margin: 11px 0 0;
+  font-size: 0.9rem;
+  font-weight: 520;
+  min-height: 1.5em;
+}
+
+.sim-status .qty {
+  font-variant-numeric: tabular-nums;
+  font-weight: 620;
+}
+
+.sim-status--over {
+  color: var(--force);
+}
+
+.sim-status--slide {
+  color: var(--warn);
+}
+
+.sim-status--hold {
+  color: var(--ok);
+}
+
+/* moment balance bars */
+
+.balance {
+  display: grid;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.balance-row {
+  display: grid;
+  grid-template-columns: 5.6rem minmax(0, 1fr) 5.4rem;
+  align-items: center;
+  gap: 9px;
+  font-size: 0.8rem;
+}
+
+.balance-label {
+  color: var(--muted);
+}
+
+.balance-track {
+  display: block;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.balance-fill {
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: 999px;
+  transition: width 0.06s linear;
+}
+
+.balance-fill--righting {
+  background: var(--accent);
+}
+
+.balance-fill--over {
+  background: var(--force);
+}
+
+.balance-value {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+.balance.is-done {
+  opacity: 0.45;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .balance-fill {
+    transition: none;
+  }
+}
+
+/* controls */
+
+.sim-controls {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+  padding-top: 13px;
+  border-top: 1px solid var(--border);
+}
+
+.sim-force label {
+  display: block;
+  font-size: 0.85rem;
+  margin-bottom: 7px;
+}
+
+.sim-force output {
+  font-variant-numeric: tabular-nums;
+  font-weight: 620;
+}
+
+input[type="range"] {
+  width: 100%;
+  margin: 0;
+  accent-color: var(--force);
+  height: 26px;
+}
+
+.sim-buttons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.sim-buttons button {
+  flex: 1 1 auto;
+}
+
+.btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  /* the dark theme's accents are light, so the label flips with them */
+  color: var(--on-accent);
+  font-weight: 600;
+}
+
+.btn-primary:hover {
+  color: var(--on-accent);
+  filter: brightness(1.07);
+}
+
+.btn-primary[aria-pressed="true"] {
+  background: var(--force);
+  border-color: var(--force);
 }
 
 /* --------------------------------------------------------------- diagram */
@@ -875,8 +1075,5 @@ details.notes-block li {
   .panel {
     box-shadow: none;
     break-inside: avoid;
-  }
-  .panel--answer {
-    position: static;
   }
 }

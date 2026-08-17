@@ -663,6 +663,686 @@
   }
 
   /* ------------------------------------------------------------------ *
+   * Live simulation
+   * ------------------------------------------------------------------ */
+
+  var S = window.TippingSim;
+
+  var sim = {
+    body: null,
+    state: S.makeState(),
+    raf: null,
+    lastFrame: 0,
+    applying: false,
+    dragForce: null, // set while a pointer is dragging
+    dragPoint: null, // { x, y } in canvas pixels, for the rubber band
+    maxForce: 1,
+    lastStatus: '',
+    palette: null,
+    hintShown: true
+  };
+
+  /* Canvas colours come from the stylesheet so the drawing follows the theme.
+   * Cached, and dropped whenever the theme or the size changes. */
+  function palette() {
+    if (sim.palette) return sim.palette;
+    var cs = getComputedStyle($('sim-canvas'));
+    var pick = function (name, fallback) {
+      var v = cs.getPropertyValue(name).trim();
+      return v || fallback;
+    };
+    sim.palette = {
+      text: pick('--text', '#111'),
+      muted: pick('--muted', '#666'),
+      ground: pick('--ground', '#888'),
+      border: pick('--border-strong', '#ccc'),
+      surface: pick('--surface', '#fff'),
+      body: pick('--border-strong', '#c6ccd6'),
+      accent: pick('--accent', '#2563eb'),
+      force: pick('--force', '#d94f0a')
+    };
+    return sim.palette;
+  }
+
+  function dropPalette() {
+    sim.palette = null;
+  }
+
+  function simBaseHeld() {
+    return $('sim-base-held').checked;
+  }
+
+  /** Force currently being applied, in newtons. */
+  function appliedForce() {
+    if (sim.dragForce != null) return sim.dragForce;
+    if (!sim.applying) return 0;
+    return sliderForce();
+  }
+
+  function sliderForce() {
+    var pct = Number($('sim-force-input').value) / 100;
+    return sim.maxForce * pct;
+  }
+
+  /* The slider runs to 160% of the force needed to tip it, so the threshold
+   * sits at a memorable place on the track. With no finite threshold (pushing
+   * too steeply down to ever tip it) fall back to something weight-related. */
+  function simForceScale(result) {
+    var tip = result.chosen.tipForce;
+    if (isFinite(tip) && tip > 0) return tip;
+    return Math.max(result.weight, 1);
+  }
+
+  function setSimBody(result) {
+    var hadBody = !!sim.body;
+    sim.body = S.makeBody(result);
+    sim.maxForce = simForceScale(result);
+
+    // keep whatever pose it is in, but respect the new geometry
+    if (hadBody) {
+      sim.state.theta = Math.min(sim.state.theta, sim.body.thetaEnd);
+      if (sim.state.theta < sim.body.thetaEnd) sim.state.fallen = false;
+    }
+    updateSimForceLabel();
+  }
+
+  function updateSimForceLabel() {
+    var pct = Number($('sim-force-input').value);
+    var force = sliderForce();
+    var unit = $('force-unit').value || 'N';
+    $('sim-force-out').textContent = fmtForce(force, unit) + ' · ' + pct + '% of what it takes';
+  }
+
+  function resetSim() {
+    sim.state = S.makeState();
+    sim.dragForce = null;
+    sim.dragPoint = null;
+    setApplying(false);
+    drawSim();
+    renderSimReadouts();
+  }
+
+  function setApplying(on) {
+    sim.applying = on;
+    var btn = $('sim-apply');
+    btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    btn.textContent = on ? 'Stop' : 'Apply';
+    if (on) startSimLoop();
+  }
+
+  /* ---------------------------- the view box ---------------------------- */
+
+  /**
+   * The view the camera is easing toward: whatever frames the object's
+   * current pose. A box big enough for the whole fall would leave the upright
+   * assembly tiny in one corner, and a box that fits only the upright pose
+   * would lose it on the way over — so the camera follows instead.
+   */
+  function viewTarget(w, availH) {
+    var b = sim.body;
+    var st = sim.state;
+
+    var corners = [
+      [0, 0],
+      [-2 * b.d, 0],
+      [-2 * b.d, b.thickness],
+      [0, b.thickness],
+      [-b.d, b.poleTop],
+      [-b.d, b.hPush]
+    ];
+
+    var minX = 0;
+    var maxX = 0;
+    var maxY = 0;
+    corners.forEach(function (c) {
+      var p = S.rotate(st, c[0], c[1]);
+      var x = p.x + st.slide;
+      if (x < minX) minX = x;
+      if (x > maxX) maxX = x;
+      if (p.y > maxY) maxY = p.y;
+    });
+
+    var span = Math.max(maxX - minX, 1e-4);
+    var height = Math.max(maxY, 1e-4);
+    // extra room on the left for the force arrow, which is drawn in pixels
+    var padLeft = Math.max(span * 0.3, height * 0.2);
+    var padRight = Math.max(span * 0.12, height * 0.08);
+    var padTop = Math.max(height * 0.16, span * 0.06);
+
+    var worldW = span + padLeft + padRight;
+    var worldH = height + padTop;
+
+    /* Centre the pose in the frame rather than pinning the ground to the
+     * bottom. Upright, that puts the ground near the bottom anyway; once it's
+     * down, a short wide pose would otherwise leave the top half empty. */
+    return {
+      scale: Math.min(w / worldW, availH / worldH),
+      centreX: (minX - padLeft + maxX + padRight) / 2,
+      centreY: worldH / 2
+    };
+  }
+
+  function currentViewTarget() {
+    var canvas = $('sim-canvas');
+    var h = canvas.clientHeight || 200;
+    return viewTarget(canvas.clientWidth || 320, Math.max(40, h - 26));
+  }
+
+  /** Move the camera toward its target. Snaps when no dt is given. */
+  function easeView(dt) {
+    var target = currentViewTarget();
+    if (!sim.view || !dt) {
+      sim.view = target;
+      return;
+    }
+    var k = 1 - Math.exp(-dt / 0.14);
+    sim.view.scale += (target.scale - sim.view.scale) * k;
+    sim.view.centreX += (target.centreX - sim.view.centreX) * k;
+    sim.view.centreY += (target.centreY - sim.view.centreY) * k;
+  }
+
+  /** Has the camera caught up? The loop keeps running until it has. */
+  function viewSettled() {
+    if (!sim.view) return true;
+    var target = currentViewTarget();
+    var scaleOff = Math.abs(target.scale - sim.view.scale) / Math.max(target.scale, 1e-9);
+    var panX = Math.abs(target.centreX - sim.view.centreX) * sim.view.scale;
+    var panY = Math.abs(target.centreY - sim.view.centreY) * sim.view.scale;
+    return scaleOff < 0.002 && panX < 0.4 && panY < 0.4;
+  }
+
+  /** World-to-canvas mapping from the camera's current position. */
+  function simView() {
+    var canvas = $('sim-canvas');
+    var w = canvas.clientWidth || 320;
+    var h = canvas.clientHeight || 200;
+    if (!sim.view) easeView();
+
+    var scale = sim.view.scale;
+    var centreX = sim.view.centreX;
+    var centreY = sim.view.centreY;
+
+    return {
+      w: w,
+      h: h,
+      scale: scale,
+      groundY: h / 2 + centreY * scale,
+      // world x (already including any slide) -> canvas x
+      sx: function (x) {
+        return w / 2 + (x - centreX) * scale;
+      },
+      sy: function (y) {
+        return h / 2 - (y - centreY) * scale;
+      },
+      worldLeft: centreX - w / 2 / scale
+    };
+  }
+
+  /** A round number near `rough`, so ground marks don't shuffle about. */
+  function niceStep(rough) {
+    if (!(rough > 0)) return 1;
+    var power = Math.pow(10, Math.floor(Math.log10(rough)));
+    var norm = rough / power;
+    var step = norm >= 5 ? 5 : norm >= 2 ? 2 : 1;
+    return step * power;
+  }
+
+  /** Body-frame point -> canvas point, through the current rotation. */
+  function bodyPoint(view, x, y) {
+    var p = S.rotate(sim.state, x, y);
+    return { x: view.sx(p.x + sim.state.slide), y: view.sy(p.y) };
+  }
+
+  function polygon(ctx, pts, fill, stroke) {
+    ctx.beginPath();
+    pts.forEach(function (p, i) {
+      if (i === 0) ctx.moveTo(p.x, p.y);
+      else ctx.lineTo(p.x, p.y);
+    });
+    ctx.closePath();
+    if (fill) {
+      ctx.fillStyle = fill;
+      ctx.fill();
+    }
+    if (stroke) {
+      ctx.strokeStyle = stroke;
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
+    }
+  }
+
+  function arrow(ctx, fromX, fromY, toX, toY, colour, width) {
+    var dx = toX - fromX;
+    var dy = toY - fromY;
+    var len = Math.hypot(dx, dy);
+    if (len < 1) return;
+    var ux = dx / len;
+    var uy = dy / len;
+    var headLen = Math.min(11, len * 0.42);
+
+    ctx.strokeStyle = colour;
+    ctx.lineWidth = width || 2.4;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(fromX, fromY);
+    ctx.lineTo(toX - ux * headLen * 0.6, toY - uy * headLen * 0.6);
+    ctx.stroke();
+
+    ctx.fillStyle = colour;
+    ctx.beginPath();
+    ctx.moveTo(toX, toY);
+    ctx.lineTo(toX - ux * headLen + -uy * headLen * 0.42, toY - uy * headLen + ux * headLen * 0.42);
+    ctx.lineTo(toX - ux * headLen - -uy * headLen * 0.42, toY - uy * headLen - ux * headLen * 0.42);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  function drawSim(dt) {
+    var canvas = $('sim-canvas');
+    var ctx = canvas.getContext('2d');
+    if (!ctx || !sim.body) return;
+
+    easeView(dt);
+
+    var dpr = window.devicePixelRatio || 1;
+    var wantW = Math.round(canvas.clientWidth * dpr);
+    var wantH = Math.round(canvas.clientHeight * dpr);
+    if (canvas.width !== wantW || canvas.height !== wantH) {
+      canvas.width = wantW;
+      canvas.height = wantH;
+    }
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, canvas.clientWidth, canvas.clientHeight);
+
+    var b = sim.body;
+    var st = sim.state;
+    var c = palette();
+    var view = simView();
+    var force = appliedForce();
+
+    /* ground, with marks at fixed world positions so they slide past when the
+     * base does */
+    ctx.strokeStyle = c.ground;
+    ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    ctx.moveTo(0, view.groundY);
+    ctx.lineTo(view.w, view.groundY);
+    ctx.stroke();
+
+    /* Marks sit at fixed world positions, so they stream past when the base
+     * slides. Rounding the spacing keeps them from shuffling as the camera
+     * zooms. */
+    var spacing = niceStep(view.w / view.scale / 14);
+    ctx.lineWidth = 1;
+    ctx.globalAlpha = 0.55;
+    var firstMark = Math.floor(view.worldLeft / spacing) * spacing;
+    for (var k = 0; k < 400; k += 1) {
+      var mx = view.sx(firstMark + k * spacing);
+      if (mx > view.w + 12) break;
+      if (mx < -12) continue;
+      ctx.beginPath();
+      ctx.moveTo(mx, view.groundY);
+      ctx.lineTo(mx - 8, view.groundY + 8);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+
+    /* the line the centre of mass has to cross: straight up from the pivot */
+    var pivot = bodyPoint(view, 0, 0);
+    ctx.save();
+    ctx.setLineDash([4, 4]);
+    ctx.strokeStyle = c.muted;
+    ctx.globalAlpha = 0.5;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(pivot.x, pivot.y);
+    ctx.lineTo(pivot.x, view.sy(b.r * 1.06));
+    ctx.stroke();
+    ctx.restore();
+
+    /* baseplate and pole, rotated about the pivot */
+    var t = b.thickness;
+    var plateDrawT = Math.max(t, 2.5 / view.scale); // a thin plate still has to be visible
+    polygon(
+      ctx,
+      [
+        bodyPoint(view, 0, 0),
+        bodyPoint(view, -2 * b.d, 0),
+        bodyPoint(view, -2 * b.d, plateDrawT),
+        bodyPoint(view, 0, plateDrawT)
+      ],
+      c.body,
+      c.text
+    );
+
+    if (b.poleLength > 0) {
+      var half = Math.max(0.012, Math.min(0.05, b.d * 0.14));
+      polygon(
+        ctx,
+        [
+          bodyPoint(view, -b.d - half, plateDrawT),
+          bodyPoint(view, -b.d + half, plateDrawT),
+          bodyPoint(view, -b.d + half, b.poleTop),
+          bodyPoint(view, -b.d - half, b.poleTop)
+        ],
+        c.body,
+        c.text
+      );
+    }
+
+    /* the radial line out to the centre of mass, so you can watch it swing
+     * toward the vertical — that crossing is the moment it goes over */
+    var cg = bodyPoint(view, -b.d, b.hCg);
+    ctx.strokeStyle = c.accent;
+    ctx.globalAlpha = 0.55;
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.moveTo(pivot.x, pivot.y);
+    ctx.lineTo(cg.x, cg.y);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+
+    // centre of mass marker
+    var rad = 7;
+    ctx.beginPath();
+    ctx.arc(cg.x, cg.y, rad, 0, Math.PI * 2);
+    ctx.fillStyle = c.surface;
+    ctx.fill();
+    ctx.strokeStyle = c.text;
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+    ctx.fillStyle = c.text;
+    ctx.beginPath();
+    ctx.moveTo(cg.x, cg.y);
+    ctx.arc(cg.x, cg.y, rad, -Math.PI / 2, 0);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(cg.x, cg.y);
+    ctx.arc(cg.x, cg.y, rad, Math.PI / 2, Math.PI);
+    ctx.closePath();
+    ctx.fill();
+
+    // pivot
+    ctx.fillStyle = c.force;
+    ctx.beginPath();
+    ctx.moveTo(pivot.x, pivot.y);
+    ctx.lineTo(pivot.x - 6, pivot.y + 9);
+    ctx.lineTo(pivot.x + 6, pivot.y + 9);
+    ctx.closePath();
+    ctx.fill();
+
+    /* the push itself */
+    var push = bodyPoint(view, -b.d, b.hPush);
+    if (force > 0) {
+      var thetaP = b.pushAngleRad;
+      var lead = 22 + 52 * Math.min(1, force / (sim.maxForce * 1.6));
+      arrow(
+        ctx,
+        push.x - Math.cos(thetaP) * lead,
+        push.y - Math.sin(thetaP) * lead,
+        push.x,
+        push.y,
+        c.force,
+        2.6
+      );
+    }
+
+    // rubber band to the pointer while dragging
+    if (sim.dragPoint) {
+      ctx.save();
+      ctx.setLineDash([3, 4]);
+      ctx.strokeStyle = c.force;
+      ctx.globalAlpha = 0.5;
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(push.x, push.y);
+      ctx.lineTo(sim.dragPoint.x, sim.dragPoint.y);
+      ctx.stroke();
+      ctx.restore();
+
+      ctx.fillStyle = c.force;
+      ctx.beginPath();
+      ctx.arc(sim.dragPoint.x, sim.dragPoint.y, 5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // grab handle at the push point, when nothing is happening
+    if (force === 0 && !st.fallen) {
+      ctx.strokeStyle = c.force;
+      ctx.globalAlpha = 0.75;
+      ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      ctx.arc(push.x, push.y, 8, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  var STATUS_TEXT = {
+    'at-rest': 'Standing still.',
+    holding: 'Holding — the push is not enough to lift it.',
+    lifting: 'Lifting onto its edge.',
+    'falling-back': 'Dropping back down.',
+    'going-over': 'Past the balance point — gravity has it now.',
+    sliding: 'Sliding across the floor instead of tipping.',
+    fallen: 'Over it goes.'
+  };
+
+  var STATUS_CLASS = {
+    holding: 'sim-status--hold',
+    'at-rest': '',
+    lifting: '',
+    'falling-back': '',
+    'going-over': 'sim-status--over',
+    fallen: 'sim-status--over',
+    sliding: 'sim-status--slide'
+  };
+
+  function renderSimReadouts() {
+    if (!sim.body) return;
+    var b = sim.body;
+    var st = sim.state;
+    var force = appliedForce();
+    var held = simBaseHeld();
+    var unit = $('force-unit').value || 'N';
+    var m = S.moments(b, st, force, held);
+    var status = S.describe(b, st, force, held);
+
+    var tilt = (st.theta * 180) / Math.PI;
+    var bits = [STATUS_TEXT[status] || ''];
+    if (force > 0) {
+      bits.push('Pushing <span class="qty">' + esc(fmtForce(force, unit)) + '</span>.');
+    }
+    if (st.theta > 1e-4 && !st.fallen) {
+      bits.push(
+        'Leaning <span class="qty">' + fmt(tilt, 1) + '°</span> of the ' +
+          fmt((b.thetaBalance * 180) / Math.PI, 1) + '° it can take.'
+      );
+    }
+    if (!held && st.slide > 1e-3) {
+      bits.push('Slid <span class="qty">' + esc(fmtLength(st.slide)) + '</span>.');
+    }
+
+    var el = $('sim-status');
+    el.className = 'sim-status ' + (STATUS_CLASS[status] || '');
+    el.innerHTML = bits.join(' ');
+
+    // announce only when the situation actually changes, not every frame
+    if (status !== sim.lastStatus) {
+      sim.lastStatus = status;
+      $('sim-announce').textContent = STATUS_TEXT[status] || '';
+      $('sim-canvas').setAttribute(
+        'aria-label',
+        'Simulation: ' + (STATUS_TEXT[status] || '') + ' Leaning ' + fmt(tilt, 1) + ' degrees.'
+      );
+    }
+
+    /* Bars share a scale, set by the righting moment when upright — so at the
+     * tipping force the two are exactly level. Once it's on the floor the
+     * moments stop meaning anything, so the comparison is dimmed out. */
+    var balance = $('sim-balance');
+    if (st.fallen) {
+      balance.classList.add('is-done');
+      $('bar-righting').style.width = '0%';
+      $('bar-over').style.width = '0%';
+      $('val-righting').textContent = '—';
+      $('val-over').textContent = '—';
+      return;
+    }
+    balance.classList.remove('is-done');
+
+    var scale = Math.max(b.weight * b.d, m.overturning, m.righting, 1e-9) * 1.04;
+    var righting = Math.max(0, m.righting + Math.max(0, m.slidingRelief));
+    var pct = function (value) {
+      return Math.round(Math.min(100, Math.max(0, (value / scale) * 100)) * 10) / 10 + '%';
+    };
+    $('bar-righting').style.width = pct(righting);
+    $('bar-over').style.width = pct(m.overturning);
+    $('val-righting').textContent = fmtMoment(righting);
+    $('val-over').textContent = fmtMoment(m.overturning);
+  }
+
+  function simFrame(now) {
+    var dt = sim.lastFrame ? (now - sim.lastFrame) / 1000 : 1 / 60;
+    sim.lastFrame = now;
+
+    var force = appliedForce();
+    var held = simBaseHeld();
+    S.advance(sim.body, sim.state, dt, force, held);
+    drawSim(dt);
+    renderSimReadouts();
+
+    if (sim.dragForce == null && S.isIdle(sim.body, sim.state, force, held) && viewSettled()) {
+      stopSimLoop();
+      return;
+    }
+    sim.raf = requestAnimationFrame(simFrame);
+  }
+
+  function startSimLoop() {
+    if (sim.raf != null) return;
+    sim.lastFrame = 0;
+    sim.raf = requestAnimationFrame(simFrame);
+  }
+
+  function stopSimLoop() {
+    if (sim.raf != null) cancelAnimationFrame(sim.raf);
+    sim.raf = null;
+    sim.lastFrame = 0;
+  }
+
+  /* ------------------------------ dragging ----------------------------- */
+
+  var DRAG_SPAN = 130; // pixels of drag for the full force range
+
+  function canvasPoint(event) {
+    var rect = $('sim-canvas').getBoundingClientRect();
+    return { x: event.clientX - rect.left, y: event.clientY - rect.top };
+  }
+
+  function dragTo(event) {
+    var p = canvasPoint(event);
+    sim.dragPoint = p;
+    var view = simView();
+    var push = bodyPoint(view, -sim.body.d, sim.body.hPush);
+    // pushing means dragging away from the pole, in the tipping direction
+    var reach = Math.max(0, p.x - push.x);
+    sim.dragForce = sim.maxForce * 1.6 * Math.min(1, reach / DRAG_SPAN);
+  }
+
+  function wireSim() {
+    var canvas = $('sim-canvas');
+
+    canvas.addEventListener('pointerdown', function (event) {
+      if (event.button != null && event.button !== 0) return;
+      canvas.setPointerCapture(event.pointerId);
+      canvas.classList.add('is-pushing');
+      hideSimTip();
+      dragTo(event);
+      startSimLoop();
+      event.preventDefault();
+    });
+
+    canvas.addEventListener('pointermove', function (event) {
+      if (sim.dragForce == null) return;
+      dragTo(event);
+      event.preventDefault();
+    });
+
+    var endDrag = function (event) {
+      if (sim.dragForce == null) return;
+      sim.dragForce = null;
+      sim.dragPoint = null;
+      canvas.classList.remove('is-pushing');
+      if (canvas.hasPointerCapture && event.pointerId != null &&
+          canvas.hasPointerCapture(event.pointerId)) {
+        canvas.releasePointerCapture(event.pointerId);
+      }
+      startSimLoop(); // let it settle
+    };
+    canvas.addEventListener('pointerup', endDrag);
+    canvas.addEventListener('pointercancel', endDrag);
+
+    $('sim-apply').addEventListener('click', function () {
+      hideSimTip();
+      setApplying(!sim.applying);
+      if (!sim.applying) startSimLoop();
+    });
+
+    $('sim-reset').addEventListener('click', function () {
+      resetSim();
+    });
+
+    $('sim-force-input').addEventListener('input', function () {
+      updateSimForceLabel();
+      if (sim.applying) startSimLoop();
+      else {
+        drawSim();
+        renderSimReadouts();
+      }
+    });
+
+    $('sim-base-held').addEventListener('change', function () {
+      startSimLoop();
+    });
+
+    if (window.ResizeObserver) {
+      new ResizeObserver(function () {
+        dropPalette();
+        drawSim();
+      }).observe(canvas);
+    } else {
+      window.addEventListener('resize', function () {
+        dropPalette();
+        drawSim();
+      });
+    }
+
+    if (window.matchMedia) {
+      var dark = window.matchMedia('(prefers-color-scheme: dark)');
+      var onScheme = function () {
+        dropPalette();
+        drawSim();
+      };
+      if (dark.addEventListener) dark.addEventListener('change', onScheme);
+      else if (dark.addListener) dark.addListener(onScheme);
+    }
+
+    // no point animating an off-screen canvas
+    document.addEventListener('visibilitychange', function () {
+      if (document.hidden) stopSimLoop();
+      else if (sim.applying) startSimLoop();
+    });
+  }
+
+  function hideSimTip() {
+    if (!sim.hintShown) return;
+    sim.hintShown = false;
+    $('sim-tip').classList.add('is-hidden');
+  }
+
+  /* ------------------------------------------------------------------ *
    * Rendering
    * ------------------------------------------------------------------ */
 
@@ -945,6 +1625,12 @@
     renderStats(result, forceUnit);
     renderCompare(result, forceUnit);
     renderWorking(result);
+
+    /* Hand the new geometry to the simulation and redraw it. It keeps its
+     * pose, so you can nudge an input mid-lean and watch the balance shift. */
+    setSimBody(result);
+    renderSimReadouts();
+    if (sim.raf == null) drawSim();
     $('diagram-side').innerHTML = buildSideView(result);
     $('diagram-plan').innerHTML = buildPlanView(result);
     // a corner push tips about a corner, so the side view is a slice taken
@@ -1058,6 +1744,7 @@
       applyDefaults(currentSystem);
       if (location.hash) history.replaceState(null, '', location.pathname + location.search);
       update();
+      resetSim();
       toast('Back to the example');
     });
 
@@ -1085,5 +1772,13 @@
   applyDefaults('metric');
   restore();
   wire();
+  wireSim();
   update();
+
+  /* The canvas has no size until layout has run, so draw once more after it
+   * settles rather than into a zero-width box. */
+  requestAnimationFrame(function () {
+    dropPalette();
+    drawSim();
+  });
 })();

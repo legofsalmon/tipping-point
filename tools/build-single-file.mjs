@@ -18,8 +18,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (rel) => readFileSync(join(ROOT, rel), 'utf8');
 
 const css = read('src/styles.css');
-const physics = read('src/physics.js');
-const app = read('src/app.js');
+const SCRIPTS = ['src/physics.js', 'src/sim.js', 'src/app.js'];
 
 /* A closing </script> anywhere inside inline JS would end the block early.
  * None of our source has one, but bundling shouldn't be able to break the
@@ -39,15 +38,12 @@ html = html.replace(
   `    <style>\n${css}\n    </style>\n`
 );
 
-// swap the two script tags for their contents
-html = html.replace(
-  /[ \t]*<script src="src\/physics\.js"><\/script>\n?/,
-  `    <script>\n${guardInline(physics, 'physics.js')}\n    </script>\n`
-);
-html = html.replace(
-  /[ \t]*<script src="src\/app\.js"><\/script>\n?/,
-  `    <script>\n${guardInline(app, 'app.js')}\n    </script>\n`
-);
+// swap each script tag for its contents, in the order the page loads them
+for (const path of SCRIPTS) {
+  const tag = new RegExp(`[ \\t]*<script src="${path.replace(/[/.]/g, '\\$&')}"></script>\\n?`);
+  if (!tag.test(html)) throw new Error(`no script tag found for ${path}`);
+  html = html.replace(tag, `    <script>\n${guardInline(read(path), path)}\n    </script>\n`);
+}
 
 /* Everything below points at files that don't exist beside a single-file
  * build, and a service worker can't be registered from file:// anyway. */
@@ -63,7 +59,7 @@ html = html.replace(
   '      <p class="colophon">One self-contained file — it works with no connection at all.</p>\n'
 );
 
-for (const leftover of ['src/styles.css', 'src/physics.js', 'src/app.js', 'manifest.webmanifest']) {
+for (const leftover of ['src/styles.css', ...SCRIPTS, 'manifest.webmanifest']) {
   if (html.includes(leftover)) {
     throw new Error(`bundle still references ${leftover} — a replacement pattern missed`);
   }

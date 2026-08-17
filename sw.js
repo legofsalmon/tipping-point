@@ -5,7 +5,7 @@
  * Bump CACHE when any of the shell files change, or browsers will keep
  * serving the old copy.
  */
-const CACHE = 'tipping-point-v1';
+const CACHE = 'tipping-point-v2';
 
 // Relative to the worker's own URL, so this works just as well when the app
 // is served from a subdirectory (GitHub Pages project sites, say).
@@ -15,6 +15,7 @@ const SHELL = [
   'manifest.webmanifest',
   'src/styles.css',
   'src/physics.js',
+  'src/sim.js',
   'src/app.js',
   'icons/icon.svg',
   'icons/icon-192.png',
