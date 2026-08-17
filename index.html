@@ -389,6 +389,10 @@
                 <input id="trussHeight" type="number" inputmode="decimal" step="any" min="0" />
                 <select id="trussHeight-unit" class="unit" data-units="length" aria-label="Truss height unit"></select>
               </div>
+              <p class="hint">
+                Can be shorter than the wall — the wall is rigid and fixed to the truss, so its
+                own frame carries whatever stands above the top.
+              </p>
             </div>
 
             <div class="field">
@@ -716,6 +720,14 @@
                 Wind pressure is taken as ½ρv² times a force coefficient, with the resultant
                 at the middle of the wall. Design codes add gust, exposure, height and
                 importance factors on top, and a real assessment uses them.
+              </li>
+              <li>
+                The wall is taken as rigid and inseparable from the truss, so it may stand
+                above the top of the uprights and the whole thing still tips as one body.
+                What that costs is bending at the connection and in the wall's own frame,
+                which is reported but <em>not</em> checked against anything — and it is
+                exactly the sort of thing that fails first. A big overhang wants a header,
+                or the manufacturer's word on what their frame will span.
               </li>
               <li>
                 The exposed truss is loaded as a flat lattice of the stated solidity, with

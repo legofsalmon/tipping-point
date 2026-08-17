@@ -394,10 +394,71 @@ test('missing inputs are reported', () => {
   assert.match(noPanel.errors.join(' '), /panel weight/);
 });
 
-test('a wall taller than its uprights is an error', () => {
+test('a wall taller than its uprights is fine — it cantilevers', () => {
+  /* The wall is a rigid structure bolted to the truss, so its own frame can
+   * carry the rows above the top of the upright. */
   const r = W.solve({ ...baseline, trussHeight: 4 });
+  assert.equal(r.ok, true);
+  near(r.layout.wallCantilever, 5.5 - 4); // wall tops out at 5.5
+  near(r.layout.wallOverlap, 4 - 0.5); // and 3.5 m of it is backed by truss
+  near(r.layout.cantileverFraction, 1.5 / 5);
+  assert.ok(r.uprights >= 2);
+  assert.match(r.warnings.join(' '), /1500 mm above the top of the uprights/);
+});
+
+test('the wall must at least reach the truss to be bolted to it', () => {
+  // uprights stop below where the wall starts: nothing to fix it to
+  const r = W.solve({ ...baseline, trussHeight: 0.4, wallBottom: 1.5, plateFront: 0.15 });
   assert.equal(r.ok, false);
-  assert.match(r.errors.join(' '), /at least as tall as the wall/);
+  near(r.layout.wallOverlap, 0);
+  assert.match(r.errors.join(' '), /nothing for it to be bolted to/);
+});
+
+test('a cantilever does not change the overturning, only what carries it', () => {
+  /* The wall's weight and the wind on it act in the same places whatever holds
+   * them up, so the moments about the baseplate edge are unmoved. Shortening
+   * the truss changes only its own mass and its exposed length. */
+  const full = W.solve({ ...baseline, trussHeight: 5.5, uprights: 6 });
+  const short = W.solve({ ...baseline, trussHeight: 4, uprights: 6 });
+
+  const wallOf = (r) => r.byCase.forward.moments.items.find((i) => i.name === 'LED wall');
+  near(wallOf(short).arm, wallOf(full).arm, 1e-12);
+  near(wallOf(short).moment, wallOf(full).moment, 1e-12);
+  near(short.byCase.forward.moments.wallWindMoment,
+    full.byCase.forward.moments.wallWindMoment, 1e-12);
+
+  // neither has truss showing above the wall, so the difference is just mass
+  near(short.layout.trussExposedAbove, 0);
+  near(full.layout.trussExposedAbove, 0);
+  assert.ok(short.layout.trussMass < full.layout.trussMass);
+});
+
+test('the cantilever bending is reported, and grows with the square of it', () => {
+  const at1 = W.solve({ ...baseline, trussHeight: 4.5, uprights: 6 }); // 1 m over
+  const at2 = W.solve({ ...baseline, trussHeight: 3.5, uprights: 6 }); // 2 m over
+  near(at1.layout.wallCantilever, 1);
+  near(at2.layout.wallCantilever, 2);
+
+  // force goes with the area, and the arm with half the height, so 4x
+  near(at2.cantileverMoment / at1.cantileverMoment, 4, 1e-9);
+
+  // and by hand: q x Cf x (cantilever x spacing) x cantilever/2
+  const q = W.windPressure(11, 1.225);
+  near(at1.cantileverMoment, q * 1.3 * (1 * 2) * 0.5, 1e-6);
+});
+
+test('a thin sliver of overlap is called out', () => {
+  const r = W.solve({ ...baseline, trussHeight: 1.5 });
+  near(r.layout.wallOverlap, 1);
+  assert.ok(r.layout.wallOverlap < r.layout.wallHeight * 0.3);
+  assert.match(r.warnings.join(' '), /Only 1000 mm of the wall is actually backed by truss/);
+});
+
+test('no cantilever means no cantilever moment or warning', () => {
+  const r = W.solve({ ...baseline, trussHeight: 6 });
+  near(r.layout.wallCantilever, 0);
+  near(r.cantileverMoment, 0);
+  assert.ok(!/above the top of the uprights/.test(r.warnings.join(' ')));
 });
 
 test('overlapping baseplates are flagged', () => {

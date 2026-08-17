@@ -208,6 +208,15 @@
 
     var trussMass = trussHeight * trussLinearMass;
 
+    /* The wall is a rigid structure bolted to the truss, so it does not have to
+     * stop where the truss does — its own frame can carry the rows above the
+     * top of the upright as a cantilever. What it does need is something to be
+     * bolted to, which means the two have to overlap. */
+    var wallTopY = wallBottom + wallHeight;
+    var wallOverlap = Math.max(0, Math.min(wallTopY, trussHeight) - wallBottom);
+    var wallCantilever = Math.max(0, wallTopY - trussHeight);
+    var cantileverFraction = wallHeight > EPS ? wallCantilever / wallHeight : 0;
+
     /* The truss the wall covers is shielded by it, but anything sticking up
      * above the wall — or showing below it — is out in the wind. On a tall
      * upright behind a short wall that is most of its length, and it is what
@@ -256,6 +265,9 @@
       trussMass: trussMass,
       trussLinearMass: trussLinearMass,
       trussSolidity: trussSolidity,
+      wallOverlap: wallOverlap,
+      wallCantilever: wallCantilever,
+      cantileverFraction: cantileverFraction,
       trussExposedAbove: aboveWall,
       trussExposedBelow: belowWall,
       trussExposedLength: trussExposedLength,
@@ -567,6 +579,14 @@
 
     var spacing = uprights > 1 ? L.wallWidth / (uprights - 1) : L.wallWidth;
     var tributary = spacing; // an interior upright's share
+
+    /* Wind on the cantilevered strip has to be carried back down through the
+     * connection at the top of the upright, as bending. This is not part of
+     * overturning — it is the thing that decides whether the arrangement is
+     * buildable at all — so it is reported rather than added in. */
+    var cantileverArea = L.wallCantilever * tributary;
+    var cantileverWind = pressure * coefficient * cantileverArea;
+    var cantileverMoment = cantileverWind * (L.wallCantilever / 2);
     var wallPerUpright = uprights > 1 ? L.wallMass / (uprights - 1) : L.wallMass;
 
     var totalMass =
@@ -589,10 +609,11 @@
     if (L.plateDepth <= EPS) errors.push('Enter how far the baseplate reaches front and back.');
 
     if (!errors.length) {
-      if (L.wallTop > L.trussHeight + 1e-6) {
+      if (L.wallOverlap <= EPS) {
         errors.push(
-          'The wall reaches ' + L.wallTop.toFixed(2) + ' m but the uprights are only ' +
-            L.trussHeight.toFixed(2) + ' m — the truss has to be at least as tall as the wall.'
+          'The uprights stop at ' + L.trussHeight.toFixed(2) + ' m but the wall does not ' +
+            'start until ' + L.wallBottom.toFixed(2) + ' m — there is nothing for it to be ' +
+            'bolted to.'
         );
       }
       if (!isFinite(byStability)) {
@@ -654,6 +675,21 @@
             uprights + ' uprights, against the ' + Math.round(L.ballastMass) + ' kg entered.'
         );
       }
+      if (L.wallCantilever > EPS) {
+        warnings.push(
+          'The wall stands ' + (L.wallCantilever * 1000).toFixed(0) + ' mm above the top of ' +
+            'the uprights — ' + fmtPercent(L.cantileverFraction) + ' of its height, carried by ' +
+            'its own frame as a cantilever. That is ' + Math.round(cantileverMoment) +
+            ' N·m of bending into each upright at the top, on top of anything the wall ' +
+            'frame itself has to carry. Nothing here checks either of them.'
+        );
+      }
+      if (L.wallOverlap > EPS && L.wallOverlap < L.wallHeight * 0.3) {
+        warnings.push(
+          'Only ' + (L.wallOverlap * 1000).toFixed(0) + ' mm of the wall is actually backed ' +
+            'by truss. Everything above that is hanging off the connection.'
+        );
+      }
       if (
         governingCase.moments.trussWindMoment >
         governingCase.moments.wallWindMoment * 0.5 + EPS
@@ -699,6 +735,9 @@
       windForce: windForce,
       windForcePerUpright: uprights > 0 ? windForce / uprights : windForce,
       trussForceCoefficient: trussCoefficient,
+      cantileverArea: cantileverArea,
+      cantileverWind: cantileverWind,
+      cantileverMoment: cantileverMoment,
       trussWindPerUpright: trussWindPerUpright,
       trussWindForce: uprights * trussWindPerUpright,
       /* What share of the overturning the exposed truss is responsible for —

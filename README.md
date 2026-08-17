@@ -208,6 +208,46 @@ which is a load path most are not designed for, and on uneven ground the sharing
 is anyone's guess. Bearing does relieve vertical load and bending in the truss
 either way — a real benefit, but a different question from overturning.
 
+### The uprights can be shorter than the wall
+
+The wall is a rigid structure bolted to the truss, so it does not have to stop
+where the truss does — its own frame can carry the rows above the top of the
+upright as a cantilever. Only two things are actually required: the two have to
+overlap somewhere, so there is something to bolt to, and something has to be able
+to carry the overhang.
+
+**Overturning does not change at all.** The wall's weight and the wind on it act
+in the same places whatever holds them up, so the moments about the baseplate edge
+are untouched. Shortening the truss only changes its own mass and how much of it
+is left out in the wind — and a truss hidden behind the wall catches nothing, so
+the short version usually comes out slightly ahead.
+
+**What it costs is bending**, and that is reported rather than added in, because
+it is a different check: the wind on the overhanging strip has to be carried back
+down through the connection at the top of each upright.
+
+```
+moment at the upright top = q · Cf · (cantilever × spacing) · cantilever/2
+```
+
+It grows with the *square* of the overhang — double the cantilever and the force
+doubles with the area while the arm doubles too. On the reference wall at 2 m
+spacing:
+
+| Uprights | Cantilever | Bending at each upright top |
+| --- | --- | --- |
+| 5.5 m — full height | none | — |
+| 4.5 m | 1 m | 193 N·m |
+| 3.5 m | 2 m | 385 N·m |
+| 1.5 m | 4 m | 1542 N·m |
+
+Nothing here checks that against anything, and neither the connection nor the
+wall's own frame is modelled — which is exactly where this arrangement fails
+first. A big overhang wants a header, or the manufacturer's word on what their
+frame will span. The app flags the overhang, says what fraction of the wall is
+hanging past the truss, and calls out separately when only a sliver of the wall
+is actually backed by steel.
+
 ### Why upright height matters, and it is not the weight
 
 Truss weighs very little next to the ballast holding it down — a 6 m upright is

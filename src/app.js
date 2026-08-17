@@ -1978,13 +1978,23 @@
     out.push(
       stat('Per upright', fmtForce(result.windForcePerUpright, forceUnit), 'of that wall load')
     );
-    out.push(
-      stat(
-        'Wind on bare truss',
-        fmtForce(result.trussWindForce, forceUnit),
-        fmtPercentLabel(result.trussWindShare) + ' of the overturning'
-      )
-    );
+    if (L.wallCantilever > 1e-6) {
+      out.push(
+        stat(
+          'Cantilever',
+          fmtLength(L.wallCantilever),
+          fmtMoment(result.cantileverMoment) + ' of bending at each upright top'
+        )
+      );
+    } else {
+      out.push(
+        stat(
+          'Wind on bare truss',
+          fmtForce(result.trussWindForce, forceUnit),
+          fmtPercentLabel(result.trussWindShare) + ' of the overturning'
+        )
+      );
+    }
     out.push(
       stat('Wall hangs', fmtLength(L.wallX), 'in front of the truss centre')
     );
@@ -2272,6 +2282,24 @@
         );
       })
     );
+
+    /* Where the wall carries on above the truss, show where the truss actually
+     * stops — otherwise the two rectangles just look like one tall thing. */
+    if (L.wallCantilever > 1e-6) {
+      var topY = Y(L.trussHeight);
+      parts.push(
+        line(X(-L.trussDepth / 2) - 6, topY, X(L.trussDepth / 2 + L.wallDepth) + 6, topY, 'dg-guide')
+      );
+      parts.push(
+        text(
+          X(L.wallX),
+          Y(L.wallTop) - 7,
+          fmtLength(L.wallCantilever) + ' over the truss',
+          'dg-label dg-label--force',
+          'middle'
+        )
+      );
+    }
 
     /* Label the two heights the drawing is built from. Without them there is
      * nothing on the picture that visibly answers to the height inputs. */
@@ -2570,11 +2598,20 @@
     /* The exposed truss is why upright height matters at all — its own weight
      * helps a little, its wind load hurts a lot more. */
     var exposed = L0.trussExposedLength;
-    $('truss-wind-hint').textContent = exposed > 1e-6
-      ? fmtLength(exposed) + ' of upright is out in the wind, past the wall — ' +
+    var trussHint;
+    if (L0.wallCantilever > 1e-6) {
+      trussHint = 'Shorter than the wall: ' + fmtLength(L0.wallCantilever) +
+        ' of it stands above the uprights, carried by the wall\u2019s own frame. ' +
+        'No truss is catching wind, but the connection at the top takes ' +
+        fmtMoment(result.cantileverMoment) + ' of bending.';
+    } else if (exposed > 1e-6) {
+      trussHint = fmtLength(exposed) + ' of upright is out in the wind, past the wall — ' +
         fmt(L0.trussWindAreaPerUpright, 2) + ' m² of metal each, ' +
-        fmtPercentLabel(result.trussWindShare) + ' of the overturning.'
-      : 'The wall covers the whole upright, so none of it is catching wind.';
+        fmtPercentLabel(result.trussWindShare) + ' of the overturning.';
+    } else {
+      trussHint = 'The wall covers the whole upright, so none of it is catching wind.';
+    }
+    $('truss-wind-hint').textContent = trussHint;
 
     /* What the entered height actually resolved to, and why. */
     var bottomHint = '';
