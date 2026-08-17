@@ -523,21 +523,54 @@ lean, approximate only for how fast it falls.
 
 ### Where the load goes on, and why the top wins
 
-The overturning moment is the force times the height it acts at, and there is no
-other term in it. So the force needed is *exactly* inversely proportional to that
-height — on the reference wall it is `22,722 ÷ h` newtons, a plain hyperbola with
-no optimum short of the highest point on the structure. The LED simulator lets you
-put the load in either of the two places that mean something:
+For a **level push, at the instant it starts to lift**, the moment arm about the
+tipping edge is exactly the height the force acts at — `R·sin(γ)` collapses to
+`h_push` and the depth of the push point drops out entirely. So within that case
+the force needed is exactly inversely proportional to height: on the reference wall
+`22,722 ÷ h` newtons, a plain hyperbola with no optimum short of the highest point
+you can reach. The LED simulator lets you put the load in either of the two places
+that mean something:
 
 | Where | Height | Force to start it moving |
 | --- | --- | --- |
 | Spread as wind — resultant at mid-wall | 3.0 m | 7,574 N |
 | One load at the top of the truss | 6.0 m | 3,787 N |
 
-Exactly half, because 6.0 m is exactly twice 3.0 m. **The top is the best place**,
-and "the top" means the highest point of the whole assembly — the truss top when
-the uprights stand above the wall, the wall top when the wall stands above them.
-The app names which one it is using, because that flips with the geometry.
+**The top is the best place**, and "the top" means the highest point of the whole
+assembly — the truss top when the uprights stand above the wall, the wall top when
+the wall stands above them. The app names which one it is using, because that flips
+with the geometry.
+
+Three things worth being precise about, because it is easy to over-claim here.
+
+**The saving is the ratio of the two heights, and nothing else.** Not "about half"
+— exactly `h_wind / h_top`, to the last decimal place. It comes out at half on the
+defaults only because the 6.0 m truss top happens to be exactly twice the 3.0 m
+wind resultant. Lift the bottom of the wall and it shrinks fast, because the wind's
+resultant climbs with it while the top does not:
+
+| Bottom of the wall | Wind acts at | Top load needs |
+| --- | --- | --- |
+| on the ground | 2.5 m | 42% |
+| 500 mm up (default) | 3.0 m | 50% |
+| 1.5 m up | 4.0 m | 62% |
+| 4 m up | 6.5 m | 72% |
+| a 2 m header, 4 m up on 6.5 m truss | 5.0 m | 77% |
+
+**Height is a proxy, not the criterion.** It is the criterion only while the push
+stays level. Let the aim go free and the force needed at the best angle is
+`W·d_cg / R`, set by the straight-line *distance* from the tipping edge to the
+load — so the best place is the point farthest from that edge, which is the highest
+point only when the structure is tall relative to how far the baseplate reaches. On
+this one they are the same point: the truss top is 6.021 m from the pivot against
+the wall top's 5.508 m.
+
+**Two points at the same height stop being equivalent the moment it moves.** Once
+it has tilted, the arm is `h·cosθ + reach·sinθ`, so how far *back* the load sits
+starts to count. At the instant of lift-off a push at the truss top and one on the
+wall's face at the same 5.5 m both need 4,131.3 N; ten degrees into the fall their
+arms are 5.5033 m and 5.4564 m. It changes nothing about which point is best, but
+"the height is all that matters" is only true for the first instant.
 
 Three honest qualifications, all of which the app states on screen:
 

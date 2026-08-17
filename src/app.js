@@ -2794,9 +2794,9 @@
       bits.push(
         'At ' + load.points.top.what + ', ' + fmtLength(load.points.top.y) +
           ' up, the same job takes ' + fmtForce(c.top, unit) + ' — ' +
-          fmtPercentLabel(c.top / c.wind) + ' of it, since the moment is the force times the ' +
-          'height it acts at and nothing else. Wind gets no say in either, which is rather ' +
-          'the point of it.'
+          fmtPercentLabel(c.top / c.wind) + ' of it. For a level push the arm is simply the ' +
+          'height it acts at, so that is the ratio of the two heights and nothing more. Wind ' +
+          'gets no say in either, which is rather the point of it.'
       );
     } else {
       bits.push(
