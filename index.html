@@ -1,0 +1,330 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Tipping Point — tipping force calculator</title>
+    <meta
+      name="description"
+      content="Work out the force needed to push a pole-on-a-baseplate over: enter the weights and sizes, get the tipping force, the lever arm, the tilt angle and whether it slides first."
+    />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#f4f6f8" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0e1116" media="(prefers-color-scheme: dark)" />
+
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Tipping Point" />
+
+    <link rel="stylesheet" href="src/styles.css" />
+  </head>
+  <body>
+    <div class="wrap">
+      <header class="masthead">
+        <h1>Tipping Point</h1>
+        <p>
+          A pole standing up from the centre of a baseplate. Enter the weights and sizes
+          and see how hard you'd have to push at the top to tip the whole thing over.
+        </p>
+      </header>
+
+      <main class="layout">
+        <!-- ------------------------------------------------------ answer -->
+        <section class="panel panel--answer" aria-labelledby="answer-heading">
+          <h2 id="answer-heading">Force needed to tip it</h2>
+
+          <div class="answer-figure">
+            <span class="value" id="out-force">—</span>
+            <label class="visually-hidden" for="force-unit">Force unit</label>
+            <select id="force-unit" class="unit unit-pick" data-units="force"></select>
+          </div>
+
+          <p class="answer-note" id="out-force-note" aria-live="polite"></p>
+          <p class="answer-equiv" id="out-force-equiv"></p>
+
+          <div id="out-badge"></div>
+          <ul class="notes" id="out-notes"></ul>
+        </section>
+
+        <!-- ------------------------------------------------------ inputs -->
+        <section class="panel panel--inputs" aria-labelledby="inputs-heading">
+          <h2 id="inputs-heading">The object</h2>
+
+          <div class="seg units-toggle" role="radiogroup" aria-label="Unit system">
+            <label>
+              <input type="radio" name="unit-system" value="metric" checked />
+              <span>Metric</span>
+            </label>
+            <label>
+              <input type="radio" name="unit-system" value="imperial" />
+              <span>Imperial</span>
+            </label>
+          </div>
+
+          <fieldset>
+            <legend>Baseplate</legend>
+
+            <div class="field">
+              <label for="plateMass">Weight</label>
+              <div class="input-row">
+                <input id="plateMass" type="number" inputmode="decimal" step="any" min="0" />
+                <select id="plateMass-unit" class="unit" data-units="mass" aria-label="Baseplate weight unit"></select>
+              </div>
+            </div>
+
+            <div class="field">
+              <label for="plateLength">Length</label>
+              <div class="input-row">
+                <input id="plateLength" type="number" inputmode="decimal" step="any" min="0" />
+                <select id="plateLength-unit" class="unit" data-units="length" aria-label="Baseplate length unit"></select>
+              </div>
+            </div>
+
+            <div class="field">
+              <label for="plateWidth">Width</label>
+              <div class="input-row">
+                <input id="plateWidth" type="number" inputmode="decimal" step="any" min="0" />
+                <select id="plateWidth-unit" class="unit" data-units="length" aria-label="Baseplate width unit"></select>
+              </div>
+              <p class="hint">A square plate? Put the same number in both.</p>
+            </div>
+
+            <div class="field">
+              <label for="plateThickness">Thickness</label>
+              <div class="input-row">
+                <input id="plateThickness" type="number" inputmode="decimal" step="any" min="0" />
+                <select id="plateThickness-unit" class="unit" data-units="length" aria-label="Baseplate thickness unit"></select>
+              </div>
+            </div>
+          </fieldset>
+
+          <fieldset>
+            <legend>Pole</legend>
+
+            <div class="field">
+              <label for="poleMass">Weight</label>
+              <div class="input-row">
+                <input id="poleMass" type="number" inputmode="decimal" step="any" min="0" />
+                <select id="poleMass-unit" class="unit" data-units="mass" aria-label="Pole weight unit"></select>
+              </div>
+            </div>
+
+            <div class="field">
+              <label for="poleLength">Length</label>
+              <div class="input-row">
+                <input id="poleLength" type="number" inputmode="decimal" step="any" min="0" />
+                <select id="poleLength-unit" class="unit" data-units="length" aria-label="Pole length unit"></select>
+              </div>
+              <p class="hint">Sticking straight up from the centre of the plate.</p>
+            </div>
+          </fieldset>
+
+          <fieldset>
+            <legend>The push</legend>
+
+            <div class="field">
+              <span class="label" id="direction-label">Direction</span>
+              <div class="seg seg--stack" role="radiogroup" aria-labelledby="direction-label">
+                <label>
+                  <input type="radio" name="pushDirection" value="width" checked />
+                  <span>Along the width <small id="seg-arm-width"></small></span>
+                </label>
+                <label>
+                  <input type="radio" name="pushDirection" value="length" />
+                  <span>Along the length <small id="seg-arm-length"></small></span>
+                </label>
+                <label>
+                  <input type="radio" name="pushDirection" value="corner" />
+                  <span>Toward a corner <small id="seg-arm-corner"></small></span>
+                </label>
+              </div>
+            </div>
+
+            <label class="check">
+              <input type="checkbox" id="pushAtTop" checked />
+              <span>Push at the very top of the pole</span>
+            </label>
+
+            <div class="field">
+              <label for="pushHeight">Push height above the ground</label>
+              <div class="input-row">
+                <input id="pushHeight" type="number" inputmode="decimal" step="any" min="0" />
+                <select id="pushHeight-unit" class="unit" data-units="length" aria-label="Push height unit"></select>
+              </div>
+            </div>
+
+            <details class="advanced">
+              <summary>More options</summary>
+              <div>
+                <div class="field">
+                  <label for="pushAngleDeg">Push angle</label>
+                  <div class="input-row">
+                    <input
+                      id="pushAngleDeg"
+                      type="number"
+                      inputmode="decimal"
+                      step="any"
+                      min="-89"
+                      max="89"
+                    />
+                    <select id="pushAngleDeg-unit" class="unit" disabled aria-hidden="true">
+                      <option>°</option>
+                    </select>
+                  </div>
+                  <p class="hint">
+                    0 is level. Positive angles push down into the ground, negative angles
+                    pull upwards.
+                  </p>
+                </div>
+
+                <div class="field">
+                  <label for="topMass">Extra weight carried at the top</label>
+                  <div class="input-row">
+                    <input id="topMass" type="number" inputmode="decimal" step="any" min="0" />
+                    <select id="topMass-unit" class="unit" data-units="mass" aria-label="Top weight unit"></select>
+                  </div>
+                  <p class="hint">A sign, a lamp, a camera — anything bolted to the top.</p>
+                </div>
+
+                <label class="check">
+                  <input type="checkbox" id="checkSliding" checked />
+                  <span>Check whether it slides before it tips</span>
+                </label>
+
+                <div class="field">
+                  <label for="friction">Friction against the ground</label>
+                  <div class="input-row">
+                    <input id="friction" type="number" inputmode="decimal" step="0.05" min="0" />
+                    <select id="friction-preset" class="unit" aria-label="Friction preset">
+                      <option value="">Set…</option>
+                      <option value="0.05">PTFE 0.05</option>
+                      <option value="0.15">Steel on steel 0.15</option>
+                      <option value="0.3">Wood on wood 0.3</option>
+                      <option value="0.45">Steel on concrete 0.45</option>
+                      <option value="0.6">Rubber on wood 0.6</option>
+                      <option value="0.8">Rubber on concrete 0.8</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="field">
+                  <label for="gravity">Gravity</label>
+                  <div class="input-row">
+                    <input id="gravity" type="number" inputmode="decimal" step="any" min="0.01" />
+                    <select id="gravity-preset" class="unit" aria-label="Gravity preset">
+                      <option value="">Set…</option>
+                      <option value="9.80665">Earth</option>
+                      <option value="1.62">Moon</option>
+                      <option value="3.72">Mars</option>
+                    </select>
+                  </div>
+                  <p class="hint">Metres per second squared.</p>
+                </div>
+              </div>
+            </details>
+          </fieldset>
+
+          <div class="actions">
+            <button type="button" id="btn-share">Copy link</button>
+            <button type="button" id="btn-copy">Copy summary</button>
+            <button type="button" id="btn-reset">Reset</button>
+          </div>
+        </section>
+
+        <!-- ----------------------------------------------------- diagram -->
+        <section class="panel panel--diagram" aria-labelledby="diagram-heading">
+          <h2 id="diagram-heading">What's happening</h2>
+          <div class="diagram-grid">
+            <div>
+              <div class="diagram-box" id="diagram-side"></div>
+              <p class="diagram-caption" id="diagram-side-caption">Side on, roughly to scale</p>
+            </div>
+            <div>
+              <div class="diagram-box" id="diagram-plan"></div>
+              <p class="diagram-caption">Looking down on the plate</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- ------------------------------------------------------ detail -->
+        <section class="panel panel--detail" aria-labelledby="detail-heading">
+          <h2 id="detail-heading">The numbers</h2>
+
+          <dl class="stats" id="out-stats"></dl>
+
+          <h3 class="subhead">Which way is easiest</h3>
+          <div class="table-scroll">
+            <table class="compare">
+              <thead>
+                <tr>
+                  <th scope="col">Push direction</th>
+                  <th scope="col">Lever arm</th>
+                  <th scope="col">Force</th>
+                </tr>
+              </thead>
+              <tbody id="out-compare"></tbody>
+            </table>
+          </div>
+
+          <h3 class="subhead">Working</h3>
+          <pre class="working" id="out-working"></pre>
+
+          <details class="notes-block">
+            <summary>What this assumes</summary>
+            <ul>
+              <li>
+                Everything is rigid and the pole is fixed solidly to the plate — no bending,
+                no flexing, no wobbling in its socket.
+              </li>
+              <li>
+                The ground is flat, level and hard. A plate sinking into soft ground or
+                resting on a slope behaves differently.
+              </li>
+              <li>
+                The push is steady and slow. A sharp knock can tip something that a steady
+                push of the same size would not, which is what the energy figure is for.
+              </li>
+              <li>
+                The baseplate is a uniform slab and the pole a uniform rod, both with their
+                weight evenly spread, and the pole is centred on the plate.
+              </li>
+              <li>
+                The force is the level at which it <em>starts</em> to lift. That is also the
+                hardest part — once it is past the balance point it keeps going on its own,
+                and needs less and less force on the way over.
+              </li>
+              <li>
+                It answers "will it tip", not "will it break". A tall pole may bend or shear
+                at its base well before the plate lifts.
+              </li>
+            </ul>
+          </details>
+        </section>
+      </main>
+
+      <p class="colophon">
+        Works offline once loaded. On a phone, use <em>Add to Home Screen</em> to install it.
+      </p>
+    </div>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+    <script src="src/physics.js"></script>
+    <script src="src/app.js"></script>
+    <script>
+      // Service worker gives us offline use once installed. It needs a real
+      // origin, so skip it when the page is opened straight off the disk.
+      if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+        window.addEventListener('load', function () {
+          navigator.serviceWorker.register('sw.js').catch(function () {
+            /* offline support is a bonus, not a requirement */
+          });
+        });
+      }
+    </script>
+  </body>
+</html>

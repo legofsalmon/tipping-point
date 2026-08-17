@@ -1,0 +1,17 @@
+{
+  "name": "tipping-point",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Work out the force needed to push a pole on a baseplate over.",
+  "license": "MIT",
+  "//": "No \"type\" field on purpose: src/*.js are plain browser scripts that the tests load with require(), while the tools are .mjs and load as modules regardless.",
+  "scripts": {
+    "test": "node --test \"test/**/*.test.mjs\"",
+    "build": "node tools/build-single-file.mjs --fragment",
+    "icons": "node tools/make-icons.mjs",
+    "serve": "node tools/serve.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

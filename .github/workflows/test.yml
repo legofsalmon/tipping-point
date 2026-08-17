@@ -1,0 +1,32 @@
+name: test
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Physics tests
+        run: npm test
+
+      - name: Single-file bundle builds
+        run: npm run build
+
+      - name: Icons are up to date with the generator
+        run: |
+          npm run icons
+          if ! git diff --quiet -- icons/; then
+            echo "icons/ differs from what tools/make-icons.mjs produces."
+            echo "Run 'npm run icons' and commit the result."
+            git diff --stat -- icons/
+            exit 1
+          fi
