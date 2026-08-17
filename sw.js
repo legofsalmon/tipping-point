@@ -4,8 +4,13 @@
  *
  * Bump CACHE when any of the shell files change, or browsers will keep
  * serving the old copy.
+ *
+ * Adding or removing a form field makes this a must rather than a tidiness
+ * matter: the fetch handler serves the cache first and refreshes behind it, so
+ * a stale index.html can end up paired with a fresh app.js looking for an input
+ * that the old markup does not have.
  */
-const CACHE = 'tipping-point-v3';
+const CACHE = 'tipping-point-v4';
 
 // Relative to the worker's own URL, so this works just as well when the app
 // is served from a subdirectory (GitHub Pages project sites, say).

@@ -379,6 +379,20 @@
       sel.setAttribute('data-prev', unit);
     });
 
+    /* Links and saved state from before the truss had a width across the wall
+     * carry the depth alone. Box truss is square, which is what those numbers
+     * described, so the width follows the depth rather than being left at a
+     * default that quietly contradicts it. */
+    if (p.has('td') && !p.has('tw')) {
+      var depthField = fieldById('trussDepth');
+      var widthField = fieldById('trussWidth');
+      $(widthField.id).value = $(depthField.id).value;
+      var from = unitSelect(depthField);
+      var to = unitSelect(widthField);
+      to.value = from.value;
+      to.setAttribute('data-prev', from.value);
+    }
+
     ALL_SCALARS.forEach(function (s) {
       var raw = p.get(s.key);
       if (raw != null && isFinite(parseFloat(raw))) $(s.id).value = String(parseFloat(raw));
@@ -1924,7 +1938,9 @@
         (result.uprights > 1
           ? esc(fmtLength(result.spacing)) + ' between centres'
           : 'a single upright') +
-        '. Each one carries ' + esc(fmtMass(result.loadPerUpright)) + '.';
+        '. ' + (result.uprights > 2
+          ? 'The worst-off one carries ' + esc(fmtMass(result.loadPerUpright))
+          : 'Each carries ' + esc(fmtMass(result.loadPerUpright))) + '.';
     }
 
     $('led-governing').innerHTML = result.usingOverride
@@ -2123,14 +2139,39 @@
       fmt(split.perUpright.restoring - result.safetyFactor * split.perUpright.overturning, 0));
     lines.push('    = ' + result.byCase[c.id].uprightsNeeded + ' for this case');
     lines.push('');
-    lines.push('  also at least ' + result.constraints.find(function (k) {
-      return k.id === 'spacing';
-    }).n + ' for the spacing limit, and ' + result.constraints.find(function (k) {
-      return k.id === 'load';
-    }).n + ' for the weight per upright.');
+    lines.push('  also at least ' + wants(result, 'spacing') + ' for the spacing limit, and ' +
+      wants(result, 'load') + ' for the weight per upright.');
+    lines.push('  at most ' + result.uprightsThatFit + ' fit behind the wall (' +
+      fmt(L.wallWidth, 2) + ' / ' + fmt(L.trussWidth, 2) + ' m)');
     lines.push('  so ' + result.minimumUprights + ' uprights.');
+    lines.push('');
+    /* The one step someone is most likely to try to reproduce by hand, and the
+     * reason the spacing is not simply the width over the bays. */
+    lines.push('Setting out:');
+    lines.push('  centres span  ' + fmt(L.wallWidth, 2) + ' − ' + fmt(L.trussWidth, 2) +
+      ' = ' + fmt(L.centreSpan, 3) + ' m   (an upright width off, so none of it shows)');
+    if (result.uprights > 1) {
+      lines.push('  spacing       ' + fmt(L.centreSpan, 3) + ' / ' + (result.uprights - 1) +
+        ' = ' + fmt(result.spacing, 3) + ' m');
+    }
+    lines.push('  first centre  ' + fmt(L.endInset, 3) + ' m in from the end of the wall');
 
     $('led-working').textContent = lines.join('\n');
+  }
+
+  /**
+   * What one criterion asked for, in words when it asked for more than can ever
+   * stand behind the wall — printing "Infinity uprights" is not an answer.
+   */
+  function wants(result, id) {
+    var c = result.constraints.filter(function (k) {
+      return k.id === id;
+    })[0];
+    if (!c) return '—';
+    if (isFinite(c.n)) return String(c.n);
+    return isFinite(c.wanted)
+      ? c.wanted + ', more than the ' + result.uprightsThatFit + ' that fit'
+      : 'more than any number of them can do';
   }
 
   /**
@@ -2168,13 +2209,8 @@
       '  each carries ' + fmtLength(result.tributary) + ' of wall width',
       '  centres from the left end: ' + settingOut(result),
       '  decided by: ' + result.governingConstraint.label,
-      '  spacing limit wants ' + result.constraints.filter(function (c) {
-        return c.id === 'spacing';
-      })[0].n + ', weight per upright wants ' + result.constraints.filter(function (c) {
-        return c.id === 'load';
-      })[0].n + ', stability wants ' + result.constraints.filter(function (c) {
-        return c.id === 'stability';
-      })[0].n,
+      '  spacing limit wants ' + wants(result, 'spacing') + ', weight per upright wants ' +
+        wants(result, 'load') + ', stability wants ' + wants(result, 'stability'),
       '',
       'BALLAST: ' + fmtMass(result.ballastNeededPerUpright) + ' per baseplate (' +
         fmtMass(result.uprights * result.ballastNeededPerUpright) + ' in total)',

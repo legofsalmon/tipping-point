@@ -965,8 +965,12 @@
         /* And the bit that reaches out past the face of the wall towards you,
          * which is the part of the plate you actually trip over. */
         plateToe: Math.max(0, L.plateFront - L.wallFootX),
-        /* How much floor the run wants, which is wider than the wall. */
-        footprint: L.wallWidth > EPS ? L.centreSpan + L.plateWidth : 0,
+        /* How much floor the run wants. Normally wider than the wall, since the
+         * plates are wider than the truss — but never narrower than the wall
+         * itself, which is on the floor too. */
+        footprint: L.wallWidth > EPS
+          ? Math.max(L.wallWidth, L.centreSpan + L.plateWidth)
+          : 0,
         /* Named for what it means: the truss is out of sight. The baseplates
          * are reported separately rather than folded in here, because they are
          * at floor level and a different question. */

@@ -170,10 +170,11 @@ usually the one you have least room for — the wall is in the way.
 The two reaches are entered separately, with a checkbox to centre the truss and
 mirror them. Worth knowing which way to spend a given footprint: on the
 reference wall, a 1 m plate centred on the truss wants **9 uprights**, while the
-same 1 m split 400 mm forward / 600 mm back does better — because reaching
+same 1 m split 600 mm forward / 400 mm back wants **8** — because reaching
 forward lengthens the arm that resists the governing case, whereas reaching back
-only helps the case that already has margin to spare. The default, 500 forward
-and 1 m back, wants 6.
+only helps the case that already has margin to spare. Spend it the other way, 400
+forward and 600 back, and it goes up to 10. The default, 500 forward and 1 m back,
+wants 6.
 
 ### How low the wall can sit, and whether resting on something helps
 
@@ -234,12 +235,12 @@ It grows with the *square* of the overhang — double the cantilever and the for
 doubles with the area while the arm doubles too. On the reference wall at 2 m
 spacing:
 
-| Uprights | Cantilever | Bending at each upright top |
-| --- | --- | --- |
-| 5.5 m — full height | none | — |
-| 4.5 m | 1 m | 193 N·m |
-| 3.5 m | 2 m | 385 N·m |
-| 1.5 m | 4 m | 1542 N·m |
+| Uprights | Cantilever | Wind on it | Bending at each upright top |
+| --- | --- | --- | --- |
+| 5.5 m — full height | none | — | — |
+| 4.5 m | 1 m | 187 N | 94 N·m |
+| 3.5 m | 2 m | 374 N | 374 N·m |
+| 1.5 m | 4 m | 748 N | 1495 N·m |
 
 Nothing here checks that against anything, and neither the connection nor the
 wall's own frame is modelled — which is exactly where this arrangement fails
@@ -294,7 +295,7 @@ the wall, reaching further forward, or more ballast — not more legs.
 | Wind from behind | front edge | barely inside it — **hurts** |
 
 So the case that governs is almost always wind from *behind* the screen, over
-the front edge. On the worked example below the two come out at 2.90× and 1.57×
+the front edge. On the worked example below the two come out at 2.86× and 1.55×
 — the "easy" direction has nearly twice the margin.
 
 Wind force is `½ρv²` × a force coefficient × the wall area, with the resultant
@@ -340,7 +341,8 @@ wall at 40 kg/m² — 2 tonnes of panel — on 6 m of 300 mm box truss, baseplat
 reaching 500 mm forward and 1 m back, in an 11 m/s (25 mph) wind.
 
 - **6 uprights** at 1.94 m centres — decided by stability, not spacing or load
-- **285 kg of ballast** per baseplate, 1710 kg in total
+- **285 kg of ballast** per baseplate, 1710 kg in total (284 kg is the figure, and
+  the app rounds up to something you can order)
 - Good for **11.2 m/s** with 1.5× in hand; over it goes at **13.7 m/s**
 - Each upright carries 427 kg of wall and truss
 
@@ -392,11 +394,21 @@ interior uprights — 10% to 25% more, depending on the number of bays — and
 nothing here accounts for that. It is one more reason the load figure is a
 sizing guide rather than a reaction to design a baseplate from.
 
-None of this touches overturning. The inset moves mass sideways *along* the edge
-the structure tips about, and the moment balance only cares about how far forward
-or back things sit — so the required count for stability, the limiting wind speed
-and the ballast are all identical either way. What it changes is the spacing you
-set out to, the load each upright carries, and whether anyone can see the truss.
+The inset does not touch the moment balance. It moves mass sideways *along* the
+edge the structure tips about, and the balance only cares about how far forward or
+back things sit — so at any given number of uprights, the ratio, the limiting wind
+speed and the ballast are identical either way, to the last decimal place.
+
+That is not the same as saying the *answer* cannot move, and it is worth being
+precise about the difference. Shorter bays mean the spacing and load limits are
+met by fewer uprights, so when one of those is what decides the count, the count
+can drop by one — and everything that scales with the number of ballasted
+baseplates moves with it. A 5.4 m wall on 600 mm truss with a 1.2 m spacing limit
+goes from 6 uprights to 5, and the ballast needed on each rises from 146 kg to
+207 kg — 1033 kg in total against 874 kg, so *more* ballast overall for one fewer
+base. Each upright you drop takes its own baseplate and truss weight out of the
+holding-down side as well, and the ballast has to make that up. Stability's own
+demand is unchanged throughout: it never sees the spacing.
 
 One practical consequence: the pitch no longer divides the wall width evenly, so
 the uprights do not land on cabinet joints. 1.94 m on a 500 mm cabinet grid is

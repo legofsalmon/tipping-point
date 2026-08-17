@@ -1221,3 +1221,38 @@ test('across() clamps rubbish rather than throwing', () => {
   }
   near(W.across(L, 6.4).spacing, W.across(L, 6).spacing); // rounds
 });
+
+test('the run never wants less floor than the wall itself', () => {
+  // plates narrower than the truss: the wall is the widest thing on the floor
+  near(W.solve({ ...baseline, plateWidth: 0.1 }).showing.footprint, 10);
+  // and the usual way round, the plates set the footprint
+  near(W.solve(baseline).showing.footprint, 9.7 + 0.6);
+});
+
+test('shortening the bays can drop the count when spacing or load governs', () => {
+  /* The moment balance is untouched at a given count, but the count itself can
+   * move — and everything that scales with the number of ballasted plates moves
+   * with it. Worth pinning, because it is the easy thing to overclaim. */
+  const pinched = {
+    ...baseline, wallWidth: 5.4, trussDepth: 0.6, maxSpacing: 1.2
+  };
+  const inset = W.solve(pinched);
+  const flush = W.solve({ ...pinched, trussWidth: 1e-9 });
+
+  assert.equal(flush.uprights, 6);
+  assert.equal(inset.uprights, 5); // shorter bays, so one fewer clears the limit
+  assert.equal(inset.governingConstraint.id, 'spacing');
+
+  // fewer plates holding the same overturning: more ballast on each, less overall
+  assert.ok(inset.ballastNeededPerUpright > flush.ballastNeededPerUpright);
+  assert.ok(
+    inset.uprights * inset.ballastNeededPerUpright >
+      flush.uprights * flush.ballastNeededPerUpright
+  );
+
+  // and stability's own demand never sees the spacing
+  assert.equal(
+    inset.constraints.find((c) => c.id === 'stability').n,
+    flush.constraints.find((c) => c.id === 'stability').n
+  );
+});
