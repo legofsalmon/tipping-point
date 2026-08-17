@@ -170,6 +170,20 @@
     var area = wallWidth * wallHeight;
     var wallMass = area * arealMass;
 
+    /* A wall whose bottom row sits down on the ground (or on a sill at ground
+     * level) bears on it along its own footprint, and the front of that
+     * footprint can be further forward than the baseplate reaches. If it is,
+     * that becomes the edge the whole thing tips about.
+     *
+     * When the bearing point falls *inside* the baseplate footprint it changes
+     * nothing: at the point of overturning the body is rotating about the plate
+     * edge, so every contact behind that edge is already lifting off and
+     * carrying nothing. */
+    var wallOnGround = !!input.wallOnGround;
+    var wallFootX = trussDepth / 2 + wallDepth; // front face, at ground level
+    var bearsOnGround = wallOnGround && wallBottom <= 1e-9 && wallMass > 0;
+    var frontPivotX = bearsOnGround ? Math.max(plateFront, wallFootX) : plateFront;
+
     /* The wall hangs off the front face of the truss, so its mass sits this
      * far forward of the truss centreline. */
     var wallX = trussDepth / 2 + wallDepth / 2;
@@ -202,6 +216,14 @@
       trussDepth: trussDepth,
       trussMass: trussMass,
       trussLinearMass: trussLinearMass,
+
+      wallOnGround: wallOnGround,
+      wallFootX: wallFootX,
+      bearsOnGround: bearsOnGround,
+      /* The edge forward tipping happens about — the plate's front edge, or the
+       * wall's own footing when that reaches further out. */
+      frontPivotX: frontPivotX,
+      pivotIsWallFoot: bearsOnGround && wallFootX > plateFront + 1e-9,
 
       plateFront: plateFront,
       plateBack: plateBack,
@@ -244,7 +266,7 @@
    *   over the rear edge
    */
   function moments(L, n, windForce, dir) {
-    var pivotX = dir > 0 ? L.plateFront : -L.plateBack;
+    var pivotX = dir > 0 ? L.frontPivotX : -L.plateBack;
 
     /* Lever arm of a mass about the pivot, measured positive when it sits
      * behind the pivot and so resists the tipping. */
@@ -292,7 +314,7 @@
 
   /** Signed moment contributions, split into the parts that scale with n. */
   function momentSplit(L, dir) {
-    var pivotX = dir > 0 ? L.plateFront : -L.plateBack;
+    var pivotX = dir > 0 ? L.frontPivotX : -L.plateBack;
     var lever = function (x) {
       return dir > 0 ? pivotX - x : x - pivotX;
     };
@@ -345,30 +367,17 @@
 
   /** Ballast per baseplate needed to hold the given case. */
   function ballastForCase(L, n, windForce, dir, safety) {
-    var pivotX = dir > 0 ? L.plateFront : -L.plateBack;
+    var pivotX = dir > 0 ? L.frontPivotX : -L.plateBack;
     var arm = dir > 0 ? pivotX - L.ballastX : L.ballastX - pivotX;
     if (arm <= EPS) return Infinity; // ballast there would not help
 
-    // moments without any ballast at all
-    var bare = layout({
-      gravity: L.g,
-      wallWidth: L.wallWidth,
-      wallHeight: L.wallHeight,
-      wallBottom: L.wallBottom,
-      wallDepth: L.wallDepth,
-      wallArealMass: L.arealMass,
-      trussHeight: L.trussHeight,
-      trussDepth: L.trussDepth,
-      trussLinearMass: L.trussLinearMass,
-      plateFront: L.plateFront,
-      plateBack: L.plateBack,
-      plateWidth: L.plateWidth,
-      plateMass: L.plateMass,
-      ballastMass: 0,
-      ballastX: L.ballastX
-    });
-    var m = moments(bare, n, windForce, dir);
-    var shortfall = safety * m.overturning - m.restoring;
+    /* Take the moments as they stand and subtract whatever the ballast
+     * currently contributes, rather than rebuilding a bare layout — one less
+     * field list to keep in step. */
+    var m = moments(L, n, windForce, dir);
+    var bareRestoring = m.restoring - n * L.ballastMass * L.g * arm;
+
+    var shortfall = safety * m.overturning - bareRestoring;
     if (shortfall <= 0) return 0;
     return shortfall / (n * L.g * arm);
   }
@@ -513,11 +522,18 @@
             'baseplate or add ballast before thinking about wind.'
         );
       }
-      if (L.wallX > L.plateFront + 1e-9) {
+      if (L.wallX > L.frontPivotX + 1e-9) {
         warnings.push(
-          'The wall\'s weight sits ' + ((L.wallX - L.plateFront) * 1000).toFixed(0) +
-            ' mm outside the front edge of the baseplate, so it is pulling the structure over ' +
+          'The wall\'s weight sits ' + ((L.wallX - L.frontPivotX) * 1000).toFixed(0) +
+            ' mm outside the edge it tips about, so it is pulling the structure over ' +
             'before any wind arrives.'
+        );
+      }
+      if (L.wallOnGround && !L.bearsOnGround && L.wallBottom > 1e-9) {
+        warnings.push(
+          'The wall is set to bear on the ground but starts ' +
+            (L.wallBottom * 1000).toFixed(0) + ' mm above it, so it is not bearing on ' +
+            'anything and the truss is carrying all of it.'
         );
       }
       if (usingOverride && uprights < minimum) {

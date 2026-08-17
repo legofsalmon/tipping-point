@@ -344,6 +344,7 @@
     p.set('fu', $('force-unit').value);
     p.set('back', $('ballastAtBack').checked ? '1' : '0');
     p.set('ctr', $('trussCentred').checked ? '1' : '0');
+    p.set('wog', $('wallOnGround').checked ? '1' : '0');
     if ($('uprightsOverride').value) p.set('nup', $('uprightsOverride').value);
     return p.toString();
   }
@@ -381,6 +382,7 @@
 
     if (p.has('back')) $('ballastAtBack').checked = p.get('back') === '1';
     if (p.has('ctr')) $('trussCentred').checked = p.get('ctr') === '1';
+    if (p.has('wog')) $('wallOnGround').checked = p.get('wog') === '1';
     if (p.has('nup')) $('uprightsOverride').value = p.get('nup');
     if (p.has('dir')) setChecked('pushDirection', p.get('dir'));
     if (p.has('top')) $('pushAtTop').checked = p.get('top') === '1';
@@ -1821,6 +1823,8 @@
       wallDepth: v('wallDepth'),
       wallArealMass: v('wallArealMass'),
 
+      wallOnGround: $('wallOnGround').checked,
+
       trussHeight: v('trussHeight'),
       trussDepth: v('trussDepth'),
       trussLinearMass: v('trussLinearMass'),
@@ -1957,7 +1961,11 @@
       stat('Wall hangs', fmtLength(L.wallX), 'in front of the truss centre')
     );
     out.push(
-      stat('Front lever arm', fmtLength(L.plateFront), 'centre to front edge')
+      stat(
+        'Front lever arm',
+        fmtLength(L.frontPivotX),
+        L.pivotIsWallFoot ? 'centre to the wall’s footing' : 'centre to front edge'
+      )
     );
     out.push(stat('Spacing', fmtLength(result.spacing), 'upright to upright'));
     $('led-stats').innerHTML = out.join('');
@@ -2117,7 +2125,7 @@
     var dir = result.governingCase.moments.dir;
 
     var minX = -L.plateBack;
-    var maxX = Math.max(L.plateFront, L.wallX + L.wallDepth / 2);
+    var maxX = Math.max(L.frontPivotX, L.wallX + L.wallDepth / 2);
     var maxY = Math.max(L.trussHeight, L.wallTop);
     var scale = Math.min(
       (VW - padL - padR) / Math.max(maxX - minX, 1e-3),
@@ -2191,7 +2199,7 @@
      * about is filled in, the other is left hollow. */
     [
       { x: -L.plateBack, active: dir < 0, anchor: 'end', dx: -7 },
-      { x: L.plateFront, active: dir > 0, anchor: 'start', dx: 7 }
+      { x: L.frontPivotX, active: dir > 0, anchor: 'start', dx: 7 }
     ].forEach(function (pivot) {
       var px = X(pivot.x);
       parts.push(
@@ -2212,7 +2220,7 @@
     /* How much lever arm the wall's own weight has about the working pivot —
      * on the forward case this is the whole ball game. */
     var wallCx = X(L.wallX);
-    var pivotEdge = dir > 0 ? L.plateFront : -L.plateBack;
+    var pivotEdge = dir > 0 ? L.frontPivotX : -L.plateBack;
     var arm = Math.abs(pivotEdge - L.wallX);
     parts.push(line(wallCx, Y(L.wallBottom), wallCx, groundY + 18, 'dg-guide'));
     parts.push(line(X(pivotEdge), groundY, X(pivotEdge), groundY + 18, 'dg-guide'));
@@ -2390,7 +2398,7 @@
       // failure here, so it is held unless the user says otherwise
       mu: 0.6,
       pushAngleDeg: 0,
-      pivotX: L.plateFront,
+      pivotX: L.frontPivotX,
       parts: [
         {
           mass: L.wallMass,
@@ -2493,6 +2501,27 @@
     if (centred) setFieldBase(fieldById('plateBack'), state.plateFront);
 
     var L0 = result.layout;
+
+    /* Spell out what bearing on the ground is buying, since the answer is
+     * "nothing" more often than people expect. */
+    var bearingHint = '';
+    if (!L0.wallOnGround) {
+      bearingHint = 'The truss carries the whole wall.';
+    } else if (!L0.bearsOnGround) {
+      bearingHint = 'Set the bottom of the wall to zero for this to do anything — ' +
+        'as it is, the wall is not touching the ground.';
+    } else if (L0.pivotIsWallFoot) {
+      bearingHint = 'The wall\u2019s own footing reaches ' + fmtLength(L0.wallFootX) +
+        ' forward, past the baseplate, so that is now the edge it tips about — ' +
+        'every lever arm gains ' + fmtLength(L0.wallFootX - L0.plateFront) + '.';
+    } else {
+      bearingHint = 'No difference to overturning: the wall bears ' +
+        fmtLength(L0.wallFootX) + ' forward, inside the baseplate\u2019s ' +
+        fmtLength(L0.plateFront) + ' reach, so that contact lifts off as soon as it starts ' +
+        'to go over.';
+    }
+    $('wall-bearing-hint').textContent = bearingHint;
+
     var offset = Math.abs(L0.plateCentroidX);
     $('plate-depth-hint').textContent = L0.plateDepth > 0
       ? fmtLength(L0.plateDepth) + ' deep overall' +
@@ -2651,6 +2680,7 @@
       }
     );
 
+    $('wallOnGround').addEventListener('change', update);
     $('trussCentred').addEventListener('change', update);
     $('ballastAtBack').addEventListener('change', update);
     $('uprightsOverride').addEventListener('input', update);

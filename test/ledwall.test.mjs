@@ -530,3 +530,95 @@ test('centring costs uprights, because the rear ballast loses its lever arm', ()
     'reaching forward matters more than reaching back, for the same depth'
   );
 });
+
+/* ------------------- the wall bearing on the ground -------------------- */
+
+test('a wall bearing inside the baseplate footprint changes nothing at all', () => {
+  /* The key result. Its bearing point is 270 mm forward, well inside the
+   * 500 mm reach, so at the point of overturning that contact is already
+   * lifting off and carrying nothing. Same answer either way. */
+  const hung = W.solve({ ...baseline, wallBottom: 0 });
+  const borne = W.solve({ ...baseline, wallBottom: 0, wallOnGround: true });
+
+  near(borne.layout.wallFootX, 0.27); // 300/2 + 120
+  assert.equal(borne.layout.bearsOnGround, true);
+  assert.equal(borne.layout.pivotIsWallFoot, false, 'plate still reaches further');
+  near(borne.layout.frontPivotX, 0.5);
+
+  assert.equal(borne.uprights, hung.uprights);
+  near(borne.byCase.forward.moments.ratio, hung.byCase.forward.moments.ratio, 1e-12);
+  near(borne.byCase.backward.moments.ratio, hung.byCase.backward.moments.ratio, 1e-12);
+  near(borne.limitingWindSpeed, hung.limitingWindSpeed, 1e-12);
+  near(borne.ballastNeededPerUpright, hung.ballastNeededPerUpright, 1e-12);
+});
+
+test('a wall bearing outside the footprint moves the tipping edge out to it', () => {
+  // baseplate reaches only 150 mm forward; the wall's foot reaches 270 mm
+  const shallow = { ...baseline, plateFront: 0.15, wallBottom: 0 };
+  const hung = W.solve(shallow);
+  const borne = W.solve({ ...shallow, wallOnGround: true });
+
+  near(hung.layout.frontPivotX, 0.15);
+  near(borne.layout.frontPivotX, 0.27);
+  assert.equal(borne.layout.pivotIsWallFoot, true);
+
+  // hung, the wall's own weight is outside the edge and pulling it over
+  const wallArm = (r) => r.byCase.forward.moments.items.find((i) => i.name === 'LED wall').arm;
+  near(wallArm(hung), 0.15 - 0.21); // negative: overturning
+  near(wallArm(borne), 0.27 - 0.21); // positive: now holding it down
+  assert.ok(wallArm(hung) < 0 && wallArm(borne) > 0);
+
+  // left to size themselves, bearing on the ground saves three uprights
+  assert.ok(borne.uprights < hung.uprights, `${borne.uprights} vs ${hung.uprights}`);
+  assert.equal(hung.uprights, 10);
+  assert.equal(borne.uprights, 7);
+
+  /* Compare the margins at a fixed count, or the auto-sizing hides the effect:
+   * with fewer uprights the ratio settles back onto the safety factor either
+   * way, so the two look the same. */
+  const at8 = (extra) => W.solve({ ...shallow, uprights: 8, ...extra });
+  assert.ok(
+    at8({ wallOnGround: true }).byCase.forward.moments.ratio >
+      at8({}).byCase.forward.moments.ratio
+  );
+  assert.ok(at8({ wallOnGround: true }).limitingWindSpeed > at8({}).limitingWindSpeed);
+});
+
+test('every lever arm grows by the same amount when the edge moves out', () => {
+  const shallow = { ...baseline, plateFront: 0.15, wallBottom: 0, uprights: 8 };
+  const hung = W.solve(shallow);
+  const borne = W.solve({ ...shallow, wallOnGround: true });
+  const shift = borne.layout.frontPivotX - hung.layout.frontPivotX;
+  near(shift, 0.12); // the cabinet depth
+
+  const arms = (r) =>
+    r.byCase.forward.moments.items.reduce((acc, i) => {
+      acc[i.name] = i.arm;
+      return acc;
+    }, {});
+  const a = arms(hung);
+  const b = arms(borne);
+  for (const name of Object.keys(a)) {
+    near(b[name] - a[name], shift, 1e-12, name);
+  }
+});
+
+test('bearing does nothing when the wall is held up off the ground', () => {
+  // set to bear, but it starts 500 mm up, so it is touching nothing
+  const r = W.solve({ ...baseline, plateFront: 0.15, wallOnGround: true });
+  assert.equal(r.layout.bearsOnGround, false);
+  near(r.layout.frontPivotX, 0.15);
+  assert.match(r.warnings.join(' '), /starts 500 mm above it/);
+
+  const same = W.solve({ ...baseline, plateFront: 0.15 });
+  assert.equal(r.uprights, same.uprights);
+});
+
+test('the rear tipping edge is unaffected by the wall bearing forward', () => {
+  // tipping backward lifts everything in front, so that contact releases too
+  const shallow = { ...baseline, plateFront: 0.15, wallBottom: 0, uprights: 8 };
+  const hung = W.solve(shallow);
+  const borne = W.solve({ ...shallow, wallOnGround: true });
+  near(borne.byCase.backward.moments.pivotX, -baseline.plateBack);
+  near(borne.byCase.backward.moments.ratio, hung.byCase.backward.moments.ratio, 1e-12);
+});

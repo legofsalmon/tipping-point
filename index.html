@@ -371,6 +371,12 @@
                 tries to pull it over before any wind arrives.
               </p>
             </div>
+
+            <label class="check">
+              <input type="checkbox" id="wallOnGround" />
+              <span>Bottom of the wall bears on the ground</span>
+            </label>
+            <p class="hint" id="wall-bearing-hint"></p>
           </fieldset>
 
           <fieldset class="led-only">
@@ -678,6 +684,15 @@
                 baseplate edges, with the load shared evenly between uprights. That is the
                 global check. Individual bases still want checking for uplift, and the end
                 bays carry less than the middle ones.
+              </li>
+              <li>
+                If the wall's bottom row bears on the ground, that only helps where its own
+                footing reaches further forward than the baseplate does — and then only if
+                the cabinets can actually take being stood on, which is a load path most are
+                not designed for. Where the bearing point falls inside the baseplate, it
+                makes no difference at all: the contact lifts off the instant the thing
+                starts to go over. It does relieve weight and bending in the truss either
+                way, which is a separate question from overturning.
               </li>
               <li>
                 Ground is flat, level and hard, and the baseplates cannot slide or sink. No
