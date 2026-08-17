@@ -22,6 +22,10 @@
   --warn-soft: #fdf3e2;
   --bad: #b3261e;
   --ground: #8b93a1;
+  /* the LED wall reads as a dark screen in either theme */
+  --screen: #2f3947;
+  --screen-line: #151a22;
+  --ballast: #7b8494;
 
   --radius: 14px;
   --radius-sm: 9px;
@@ -57,6 +61,9 @@
     --warn-soft: #302512;
     --bad: #ff7b72;
     --ground: #6a7383;
+    --screen: #212a38;
+    --screen-line: #0a0d12;
+    --ballast: #4d5766;
     --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 10px 26px -14px rgba(0, 0, 0, 0.7);
   }
 }
@@ -79,6 +86,9 @@
   --warn-soft: #302512;
   --bad: #ff7b72;
   --ground: #6a7383;
+  --screen: #212a38;
+  --screen-line: #0a0d12;
+  --ballast: #4d5766;
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 10px 26px -14px rgba(0, 0, 0, 0.7);
 }
 
@@ -169,6 +179,25 @@ body {
   }
 }
 
+/* ------------------------------------------------------------------ modes */
+
+/* One page, two jobs. The data-mode attribute on the document body decides
+   which inputs, results and drawings are in play; everything else is shared.
+   (Don't write markup tags in these comments — the single-file bundler scans
+   the built page for the body tag and a stray one in here confuses it.) */
+body[data-mode="pole"] .led-only,
+body[data-mode="led"] .pole-only {
+  display: none !important;
+}
+
+.mode-toggle {
+  margin-bottom: 10px;
+}
+
+.mode-toggle span {
+  font-weight: 580;
+}
+
 .panel {
   min-width: 0;
   background: var(--surface);
@@ -219,10 +248,91 @@ body {
   min-width: 96px;
 }
 
+.answer-figure .answer-unit {
+  font-size: 1.1rem;
+  font-weight: 560;
+  color: var(--muted);
+}
+
 .answer-note {
   margin: 10px 0 0;
   color: var(--muted);
   font-size: 0.88rem;
+}
+
+.stats--tight {
+  margin-top: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
+}
+
+.badge--pass {
+  background: color-mix(in srgb, var(--ok) 14%, var(--surface));
+  color: var(--ok);
+  border-color: color-mix(in srgb, var(--ok) 34%, transparent);
+}
+
+.badge--fail {
+  background: color-mix(in srgb, var(--bad) 12%, var(--surface));
+  color: var(--bad);
+  border-color: color-mix(in srgb, var(--bad) 36%, transparent);
+}
+
+/* A bay in section is tall and narrow; the elevation is wide and short. Give
+   them a column each once there's room. */
+.diagram-grid--led {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 620px) {
+  .diagram-grid--led {
+    grid-template-columns: 190px minmax(0, 1fr);
+    align-items: start;
+  }
+}
+
+#diagram-led-side {
+  max-width: 240px;
+  margin: 0 auto;
+}
+
+/* the LED wall's own colour, used in the drawings and the legend */
+.dg-wall {
+  fill: var(--screen);
+  stroke: var(--screen-line);
+  stroke-width: 1.2;
+}
+
+.dg-ballast {
+  fill: var(--ballast);
+  stroke: var(--text);
+  stroke-width: 1;
+}
+
+.dg-truss {
+  fill: none;
+  stroke: var(--text);
+  stroke-width: 1.2;
+}
+
+.dg-truss-fill {
+  fill: var(--border-strong);
+  stroke: var(--text);
+  stroke-width: 1.2;
+}
+
+.dg-pivot-idle {
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 1.2;
+}
+
+.dg-wind {
+  stroke: var(--force);
+  stroke-width: 2;
+  fill: none;
+  stroke-linecap: round;
 }
 
 .answer-equiv {

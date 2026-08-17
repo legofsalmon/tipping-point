@@ -1,18 +1,26 @@
 # Tipping Point
 
 A small web app that works out how hard you have to push something to tip it
-over. The shape it models is a **baseplate lying flat on the ground with a pole
-standing up from its centre** — a sign post, a lamp standard, a camera stand, a
-patio umbrella base.
+over. It does two jobs, chosen with a toggle:
 
-Enter the weights and sizes, and it tells you the force needed at the top of the
-pole, which way is easiest to push, how far it can lean before it goes over on
-its own, and whether it will just slide across the floor instead.
+**Single pole** — a **baseplate lying flat on the ground with a pole standing up
+from its centre**: a sign post, a lamp standard, a camera stand, a patio
+umbrella base.
 
-Then you can actually push it. Drag the object, or dial in a force and hold it,
-and watch the thing lift onto its edge, teeter, drop back, or go over — with the
-two moments shown fighting each other in real time. Everything updates live: nudge
-a weight while it is mid-lean and the balance shifts under it.
+**LED wall** — an **LED wall built onto the front of ballasted truss uprights**,
+standing in for a ground support structure. Enter the wall and it tells you how
+many uprights you need, how much ballast goes on each baseplate, and what wind
+it will take.
+
+Either way it works from the weights and sizes, tells you which direction is
+worst, how far the thing can lean before it goes over on its own, and whether it
+will slide across the floor instead of tipping.
+
+Then you can push it over. Drag the object, or dial in a force — a wind speed, in
+LED mode — and hold it, and watch the thing lift onto its edge, teeter, drop
+back, or go over, with the two moments shown fighting each other in real time.
+Everything updates live: nudge a weight while it is mid-lean and the balance
+shifts under it.
 
 Runs in any modern browser — macOS, Windows, Android, iOS — with no build step,
 no server and no network once it has loaded.
@@ -146,6 +154,85 @@ against a kerb.
   angle: substituting `F` back in gives `N = W·h·c·cosθ / (h·c·cosθ − d·sinθ)`,
   so a push can pivot the object or slide it, but never lift it clear.
 
+## LED wall on ground support
+
+Multiple baseplate-and-upright bays spaced across the width of a wall, with the
+panels hung on the front face of the truss. Two things change the problem
+completely compared with a bare pole.
+
+**The wall's weight is already trying to tip it.** Hung on the front face, the
+panels' mass sits `truss depth ÷ 2 + cabinet depth ÷ 2` forward of the upright's
+centreline. If the baseplate doesn't reach at least that far forward, the
+structure is being pulled over before any wind arrives. The reach in front of
+the truss is the single most valuable number in the whole calculation, and it is
+usually the one you have least room for — the wall is in the way.
+
+**Wind is what decides it**, and the two directions are not symmetric:
+
+| | Tips about | The wall's own weight |
+| --- | --- | --- |
+| Wind on the face | rear edge of the baseplates | sits well forward — **helps** |
+| Wind from behind | front edge | barely inside it — **hurts** |
+
+So the case that governs is almost always wind from *behind* the screen, over
+the front edge. On the worked example below the two come out at 2.90× and 1.57×
+— the "easy" direction has nearly twice the margin.
+
+Wind force is `½ρv²` × a force coefficient × the wall area, with the resultant
+at mid-height. Both wind speeds get reported, because they answer different
+questions: the speed at which the **safety factor runs out**, and the speed at
+which it **actually goes over** (which is `√(safety factor)` times higher, since
+moment goes with v²).
+
+### How many uprights
+
+Three separate limits, and the app tells you which one is binding:
+
+1. **Spacing** — how far apart the wall's own framing lets them sit.
+2. **Weight per upright** — the wall mass each one has to carry.
+3. **Stability** — and this is the interesting one.
+
+Adding uprights helps stability in a way that isn't obvious. The wind load is
+fixed by the wall's area, so it does *not* grow when you add a bay — but every
+upright you add brings another baseplate, another set of ballast, and another
+lever arm resisting the same overturning moment. With `n` uprights:
+
+```
+n ≥ ( safety × overturning − what the wall itself resists ) / ( what one upright adds )
+```
+
+which is a closed form, so the answer is exact rather than iterated. The same
+algebra run backwards gives the ballast each baseplate needs, rounded up to
+something you can actually order.
+
+**Worked example**, and the defaults the app opens with: a 10 m × 5 m outdoor
+wall at 40 kg/m² — 2 tonnes of panel — on 6 m of 300 mm box truss, baseplates
+reaching 500 mm forward and 1 m back, in an 11 m/s (25 mph) wind.
+
+- **6 uprights** at 2 m centres — decided by stability, not spacing or load
+- **280 kg of ballast** per baseplate, 1680 kg in total
+- Good for **11.3 m/s** with 1.5× in hand; over it goes at **13.8 m/s**
+- Each upright carries 439 kg of wall and truss
+
+Take the ballast away and it wants 26 uprights. Reach 900 mm forward instead of
+500 mm and it drops to 4. That is the whole point of having it interactive.
+
+### What it does not do
+
+It checks **overturning only**, and it is a first pass rather than a design.
+Ground support carrying a wall over people is life-safety kit: a real one is
+signed off by a structural engineer against the manufacturer's load data and a
+wind standard — ANSI E1.21 for outdoor temporary structures, EN 13782, with the
+wind itself from ASCE 7 or EN 1991-1-4, which add gust, exposure and height
+factors this does not.
+
+It says nothing about whether the truss can carry the load, whether the
+baseplate or the wall's framing can take the bending, or what the connections
+see. Worth noting that the eccentric wall load puts a permanent bending moment
+into every upright, which wants checking separately. Guy lines, rear rakers,
+outriggers and tying into a building all change the answer — usually for the
+better — and none of them are modelled.
+
 ### Pushing it for real
 
 The static formula says whether it goes; the simulation says what happens next.
@@ -218,14 +305,16 @@ step that fails is `configure-pages`, and nothing else is affected.
 
 ```
 index.html                 markup, and the only page
-src/physics.js             the statics — no DOM, no dependencies
+src/physics.js             pole statics — no DOM, no dependencies
+src/ledwall.js             LED wall on ground support: wind, ballast, upright count
 src/sim.js                 the dynamics — also pure, also testable
 src/app.js                 form handling, rendering, SVG diagrams, canvas sim
 src/styles.css             styling, light and dark
 sw.js                      service worker, for offline use
 manifest.webmanifest       PWA manifest, for installing
 icons/                     generated app icons
-test/physics.test.mjs      tests for the statics
+test/physics.test.mjs      tests for the pole statics
+test/ledwall.test.mjs      tests for the LED wall calculations
 test/sim.test.mjs          tests for the dynamics, incl. agreement with the statics
 tools/make-icons.mjs       draws and encodes the icons from scratch
 tools/build-single-file.mjs bundles everything into dist/

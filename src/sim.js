@@ -37,7 +37,125 @@
   var SUB_STEP = 1 / 480;
 
   /**
-   * Rigid-body parameters, derived from a solved static result.
+   * Build a body from a list of masses and shapes.
+   *
+   * Coordinates come in with x measured forward from the upright's centreline
+   * and y up from the ground — the same frame the LED wall calculations use.
+   * Everything is shifted to be relative to the pivot on the way in, because
+   * the equations of motion are all written about that point.
+   *
+   * @param {object} spec
+   *   pivotX     where the tipping edge is, in the incoming frame
+   *   parts      [{mass, x, y, icm}] — icm about the part's own centre
+   *   shapes     [{x0, y0, x1, y1, role}] for drawing
+   *   push       {x, y} where the load is applied
+   *   endPoint   {x, y} whatever hits the ground and stops the fall
+   *   g, mu, pushAngleDeg
+   */
+  function makeBodyFromParts(spec) {
+    var pivotX = spec.pivotX || 0;
+    var parts = (spec.parts || []).filter(function (p) {
+      return p.mass > 0;
+    });
+
+    var mass = 0;
+    var sumX = 0;
+    var sumY = 0;
+    parts.forEach(function (p) {
+      mass += p.mass;
+      sumX += p.mass * p.x;
+      sumY += p.mass * p.y;
+    });
+    mass = Math.max(mass, 1e-9);
+
+    var cgX = sumX / mass;
+    var cgY = sumY / mass;
+
+    // horizontal distance from the pivot back to the centre of mass
+    var d = Math.max(pivotX - cgX, 1e-6);
+    var hCg = Math.max(cgY, 0);
+
+    var inertia = 0;
+    parts.forEach(function (p) {
+      var dx = p.x - pivotX;
+      inertia += (p.icm || 0) + p.mass * (dx * dx + p.y * p.y);
+    });
+    if (!(inertia > 0)) inertia = mass * Math.max(d * d, 1e-6);
+
+    var push = spec.push || { x: cgX, y: hCg };
+    var dPush = Math.max(pivotX - push.x, 1e-6);
+    var hPush = Math.max(push.y, 1e-6);
+
+    /* Whatever touches down first ends the fall. Given shapes but no explicit
+     * point, that's the corner with the steepest line back to the pivot. */
+    var end = spec.endPoint;
+    if (!end && spec.shapes && spec.shapes.length) {
+      var steepest = -Infinity;
+      spec.shapes.forEach(function (s) {
+        [[s.x0, s.y0], [s.x1, s.y0], [s.x0, s.y1], [s.x1, s.y1]].forEach(function (c) {
+          if (c[1] <= 1e-6) return; // already on the ground
+          var slope = Math.atan2(c[1], pivotX - c[0]);
+          if (slope > steepest) {
+            steepest = slope;
+            end = { x: c[0], y: c[1] };
+          }
+        });
+      });
+    }
+    end = end || push;
+    var endReach = pivotX - end.x;
+    var g = spec.g > 0 ? spec.g : 9.80665;
+
+    return {
+      mass: mass,
+      weight: mass * g,
+      g: g,
+      mu: spec.mu == null ? 0.6 : Math.max(0, spec.mu),
+      d: d,
+      hCg: hCg,
+      hPush: hPush,
+      pushAngleRad: ((spec.pushAngleDeg || 0) * Math.PI) / 180,
+      inertia: inertia,
+
+      r: Math.hypot(d, hCg),
+      psi: Math.atan2(hCg, d),
+
+      R: Math.hypot(dPush, hPush),
+      gamma: Math.atan2(hPush, dPush),
+
+      thetaBalance: Math.PI / 2 - Math.atan2(hCg, d),
+      /* A corner already in front of the pivot grounds out early, which is
+       * why endReach is allowed to go negative here. */
+      thetaEnd: Math.max(0.02, Math.PI - Math.atan2(Math.max(end.y, 1e-6), endReach)),
+
+      // pivot-relative geometry for drawing
+      shapes: (spec.shapes || []).map(function (s) {
+        return {
+          x0: s.x0 - pivotX,
+          y0: s.y0,
+          x1: s.x1 - pivotX,
+          y1: s.y1,
+          role: s.role
+        };
+      }),
+      markers: (spec.markers || []).map(function (m) {
+        return { x: m.x - pivotX, y: m.y, role: m.role };
+      }),
+      pushPoint: { x: push.x - pivotX, y: push.y },
+      cgPoint: { x: cgX - pivotX, y: cgY },
+      extent: {
+        back: pivotX - Math.min.apply(null, (spec.shapes || [{ x0: cgX }]).map(function (s) {
+          return Math.min(s.x0, s.x1);
+        })),
+        top: Math.max.apply(null, (spec.shapes || [{ y1: hCg }]).map(function (s) {
+          return Math.max(s.y0, s.y1);
+        }))
+      }
+    };
+  }
+
+  /**
+   * Rigid-body parameters for the single pole on a baseplate.
    *
    * The effective lever arm is used as the half-width, so a corner push is
    * modelled as the equivalent square-on problem. That reproduces the tipping
@@ -50,54 +168,47 @@
 
     var t = result.plate.thickness;
     var L = result.pole.length;
-    var mPlate = result.plate.mass;
-    var mPole = result.pole.mass;
-    var mTop = result.topMass;
-    var mass = Math.max(result.totalMass, 1e-9);
-    var hCg = result.cgHeight;
-    var hPush = Math.max(result.pushHeight, 1e-6);
     var poleTop = Math.max(result.poleTop, 1e-6);
+    var hPush = Math.max(result.pushHeight, 1e-6);
+    // a visual thickness for the pole — it has no diameter of its own
+    var halfPole = Math.max(0.012, Math.min(0.05, d * 0.14));
 
-    /* Moment of inertia about the pivot edge. The plate is a slab pivoting
-     * about one of its bottom edges, the pole a rod offset from it, anything
-     * on top a point mass. */
-    var a = 2 * d;
-    var inertia =
-      (mPlate * (a * a + t * t)) / 3 +
-      mPole * ((L * L) / 12 + d * d + Math.pow(t + L / 2, 2)) +
-      mTop * (d * d + Math.pow(t + L, 2));
-    if (!(inertia > 0)) inertia = mass * Math.max(d * d, 1e-6);
-
-    var gammaTop = Math.atan2(poleTop, d);
-
-    return {
-      mass: mass,
-      weight: result.weight,
+    var body = makeBodyFromParts({
       g: result.gravity,
       mu: result.friction == null ? 0.6 : result.friction,
-      d: d,
-      thickness: t,
-      poleLength: L,
-      poleTop: poleTop,
-      hCg: hCg,
-      hPush: hPush,
-      pushAngleRad: (result.pushAngleDeg * Math.PI) / 180,
-      inertia: inertia,
+      pushAngleDeg: result.pushAngleDeg,
+      // pole on the centreline at x = 0, tipping edge a lever arm away
+      pivotX: d,
+      parts: [
+        {
+          name: 'baseplate',
+          mass: result.plate.mass,
+          x: 0,
+          y: t / 2,
+          icm: (result.plate.mass * (4 * d * d + t * t)) / 12
+        },
+        {
+          name: 'pole',
+          mass: result.pole.mass,
+          x: 0,
+          y: t + L / 2,
+          icm: (result.pole.mass * L * L) / 12
+        },
+        { name: 'top weight', mass: result.topMass, x: 0, y: poleTop, icm: 0 }
+      ],
+      shapes: [
+        { x0: -d, y0: 0, x1: d, y1: t, role: 'plate' },
+        { x0: -halfPole, y0: t, x1: halfPole, y1: poleTop, role: 'pole' }
+      ],
+      markers: result.topMass > 0 ? [{ x: 0, y: poleTop, role: 'load' }] : [],
+      push: { x: 0, y: hPush },
+      endPoint: { x: 0, y: poleTop }
+    });
 
-      // centre of mass, as seen from the pivot
-      r: Math.hypot(d, hCg),
-      psi: Math.atan2(hCg, d),
-
-      // the point being pushed, as seen from the pivot
-      R: Math.hypot(d, hPush),
-      gamma: Math.atan2(hPush, d),
-
-      // balance point: past this its own weight carries it over
-      thetaBalance: Math.PI / 2 - Math.atan2(hCg, d),
-
-      // and it comes to rest when the top of the pole reaches the ground
-      thetaEnd: Math.PI - gammaTop
-    };
+    body.thickness = t;
+    body.poleLength = L;
+    body.poleTop = poleTop;
+    return body;
   }
 
   function makeState() {
@@ -244,6 +355,7 @@
 
   return {
     makeBody: makeBody,
+    makeBodyFromParts: makeBodyFromParts,
     makeState: makeState,
     moments: moments,
     netMoment: netMoment,

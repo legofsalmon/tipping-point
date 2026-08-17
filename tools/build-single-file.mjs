@@ -18,7 +18,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (rel) => readFileSync(join(ROOT, rel), 'utf8');
 
 const css = read('src/styles.css');
-const SCRIPTS = ['src/physics.js', 'src/sim.js', 'src/app.js'];
+const SCRIPTS = ['src/physics.js', 'src/ledwall.js', 'src/sim.js', 'src/app.js'];
 
 /* A closing </script> anywhere inside inline JS would end the block early.
  * None of our source has one, but bundling shouldn't be able to break the
@@ -70,12 +70,38 @@ writeFileSync(join(ROOT, 'dist/tipping-point.html'), html);
 console.log('wrote dist/tipping-point.html (%d KB)', Math.round(html.length / 1024));
 
 if (process.argv.includes('--fragment')) {
-  /* Strip the document wrapper. The host supplies <head> and <body>, and
-   * takes the page's name from <title> — so that's the short name only, with
-   * the "what it does" part left to whatever blurb the host asks for. */
+  /* Strip the document wrapper. The host supplies the head and body, and takes
+   * the page's name from the title — so that's the short name only, with the
+   * "what it does" part left to whatever blurb the host asks for. */
   const style = (html.match(/<style>[\s\S]*?<\/style>/) || [])[0] || '';
-  const body = (html.match(/<body>([\s\S]*)<\/body>/) || [])[1] || '';
+
+  /* Anchor on the LAST opening body tag. Inlining the stylesheet can put the
+   * text of a body tag into the page (in a comment, say), and matching the
+   * first one swallows half the stylesheet into the fragment as visible text. */
+  const bodyOpen = html.match(/<body[^>]*>/g);
+  if (!bodyOpen) throw new Error('no body tag found to extract the fragment from');
+  const start = html.lastIndexOf(bodyOpen[bodyOpen.length - 1]) +
+    bodyOpen[bodyOpen.length - 1].length;
+  const end = html.lastIndexOf('</body>');
+  if (end <= start) throw new Error('could not find the end of the body');
+  const body = html.slice(start, end);
+
   const fragment = `<title>Tipping Point</title>\n${style}\n${body.trim()}\n`;
+
+  /* The fragment is published as-is into someone else's document, so a
+   * malformed one is worth failing the build over rather than shipping. */
+  const count = (needle) => fragment.split(needle).length - 1;
+  if (count('<style>') !== 1 || count('</style>') !== 1) {
+    throw new Error('fragment should carry exactly one style block');
+  }
+  if (/<\/?(html|head|body)[\s>]/.test(fragment)) {
+    throw new Error('fragment still contains document-wrapper tags');
+  }
+  for (const marker of ['panel--inputs', 'sim-canvas', 'led-count', 'out-force']) {
+    if (!fragment.includes(marker)) {
+      throw new Error(`fragment is missing ${marker} — the body extraction went wrong`);
+    }
+  }
   writeFileSync(join(ROOT, 'dist/fragment.html'), fragment);
   console.log('wrote dist/fragment.html (%d KB)', Math.round(fragment.length / 1024));
 }
