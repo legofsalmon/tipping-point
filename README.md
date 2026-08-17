@@ -208,6 +208,37 @@ which is a load path most are not designed for, and on uneven ground the sharing
 is anyone's guess. Bearing does relieve vertical load and bending in the truss
 either way — a real benefit, but a different question from overturning.
 
+### Why upright height matters, and it is not the weight
+
+Truss weighs very little next to the ballast holding it down — a 6 m upright is
+39 kg against 300 kg of ballast — so if all you counted was its mass, making it
+taller would look like an *improvement*. It isn't, because **the truss the wall
+doesn't cover is out in the wind**.
+
+Only the exposed part counts: whatever stands above the wall, plus anything
+showing below it. A lattice is not a solid plate either, so only the fraction of
+its projected face that is actually metal is loaded — the solidity, around 0.3
+for box truss — and a lattice takes a higher force coefficient per unit of solid
+area than a flat wall does, about 1.8. Both are inputs.
+
+On the reference wall, holding everything else still:
+
+| Upright | Exposed | Truss's share of the overturning | Good for |
+| --- | --- | --- | --- |
+| 5.6 m — trimmed to the wall | 600 mm | under 1% | 11.2 m/s |
+| 6 m | 1.0 m | 1% | 11.2 m/s |
+| 12 m | 7.0 m | 27% | 11.0 m/s |
+| 20 m | 15.0 m | 43% | **8.4 m/s** |
+
+And there is a sting in the tail. The wall's wind load is fixed by its area, so
+adding uprights divides it — but **each upright brings its own sail with it**, so
+the truss load does not divide, it multiplies. Past a certain amount of exposed
+truss, every upright you add costs more than it contributes, and the answer stops
+being "you need more" and becomes "no number of them works". At 20 m the app says
+exactly that, and names the reason: each upright brings 2220 N·m of its own wind
+against the 3285 N·m it holds down. The fixes are cutting the uprights down to
+the wall, reaching further forward, or more ballast — not more legs.
+
 **Wind is what decides it**, and the two directions are not symmetric:
 
 | | Tips about | The wall's own weight |

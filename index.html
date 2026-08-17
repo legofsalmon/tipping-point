@@ -413,6 +413,17 @@
             </div>
 
             <div class="field">
+              <label for="trussSolidity">How solid the truss is</label>
+              <div class="input-row">
+                <input id="trussSolidity" type="number" inputmode="decimal" step="0.05" min="0.01" max="1" />
+                <select id="trussSolidity-unit" class="unit" disabled aria-hidden="true">
+                  <option>of face</option>
+                </select>
+              </div>
+              <p class="hint" id="truss-wind-hint"></p>
+            </div>
+
+            <div class="field">
               <label for="uprightsOverride">How many uprights</label>
               <div class="input-row">
                 <input
@@ -527,6 +538,20 @@
                   <p class="hint">
                     How much force the wind puts on a solid wall. The codes put it between
                     about 1.2 and 1.8.
+                  </p>
+                </div>
+
+                <div class="field">
+                  <label for="trussForceCoefficient">Wind force coefficient, lattice truss</label>
+                  <div class="input-row">
+                    <input id="trussForceCoefficient" type="number" inputmode="decimal" step="0.1" min="0.1" />
+                    <select id="trussForceCoefficient-unit" class="unit" disabled aria-hidden="true">
+                      <option>×</option>
+                    </select>
+                  </div>
+                  <p class="hint">
+                    Higher than a flat wall's, per unit of solid area — the codes put a
+                    square lattice between about 1.6 and 2.4.
                   </p>
                 </div>
 
@@ -691,6 +716,13 @@
                 Wind pressure is taken as ½ρv² times a force coefficient, with the resultant
                 at the middle of the wall. Design codes add gust, exposure, height and
                 importance factors on top, and a real assessment uses them.
+              </li>
+              <li>
+                The exposed truss is loaded as a flat lattice of the stated solidity, with
+                the part behind the wall taken as fully shielded and the rest fully exposed.
+                Reality is softer than that at both ends, and nothing here accounts for one
+                upright sheltering the next, for the header or ladder truss along the top, or
+                for anything else hung on the structure.
               </li>
               <li>
                 The whole run is treated as one rigid body tipping about the line of the

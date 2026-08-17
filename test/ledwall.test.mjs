@@ -245,7 +245,9 @@ test('a hopeless geometry is reported as hopeless, not as "add more legs"', () =
     ballastX: 0.4
   });
   assert.equal(W.uprightsForStability(r.layout, r.windForce, 1, 1.5), Infinity);
-  assert.match(r.warnings.join(' '), /No number of uprights fixes this/);
+  assert.match(r.warnings.join(' '), /Adding uprights will not fix this/);
+  // and it should blame the baseplate geometry, not the wind
+  assert.match(r.warnings.join(' '), /mm in front of the truss/);
 });
 
 test('an upright count can be forced, and is flagged when it is too few', () => {
@@ -261,14 +263,16 @@ test('an upright count can be forced, and is flagged when it is too few', () => 
 
 test('ballast needed per baseplate is reported, and matches by hand', () => {
   const r = W.solve({ ...baseline, ballastMass: 0, uprights: 6 });
-  /* Without ballast, forward case:
-   *   restoring   = 5686.86 + 1147.38 + 2647.79 = 9482.03
-   *   needed      = 1.5 × 14452.67              = 21679.00
-   *   shortfall   = 12196.97
-   *   per base    = 12196.97 / (6 × g × 0.75)   = 276.4 kg
+  /* Without ballast, forward case. The exposed truss adds a little wind of its
+   * own: 1 m of it showing, 0.09 m² of metal, 12.0 N each at 3 m up.
+   *   restoring   = 5687.86 + 1147.38 + 2647.80      = 9483.03
+   *   overturning = 14451.94 + 6 × 36.02             = 14668.04
+   *   needed      = 1.5 × 14668.04                   = 22002.06
+   *   shortfall   = 12519.03
+   *   per base    = 12519.03 / (6 × g × 0.75)        = 283.7 kg
    */
-  near(r.byCase.forward.ballast, 276.4, 0.5);
-  near(r.ballastNeededPerUpright, 276.4, 0.5);
+  near(r.byCase.forward.ballast, 283.7, 0.5);
+  near(r.ballastNeededPerUpright, 283.7, 0.5);
   assert.match(r.warnings.join(' '), /Ballast is short/);
 });
 
@@ -303,9 +307,13 @@ test('at the ballast it asks for, the governing case lands exactly on the factor
 });
 
 test('with no ballast at all it wants a great many uprights', () => {
-  // (21677.91 - 5687.86) / (191.23 + 441.30) = 25.3 -> 26
+  /* need = 1.5 × 14451.94 − 5687.86            = 15990.05
+   * each upright: +632.53 restoring, and brings 36.02 of its own truss wind
+   *   per = 632.53 − 1.5 × 36.02               =   578.50
+   *   n >= 15990.05 / 578.50 = 27.6            -> 28
+   */
   const r = W.solve({ ...baseline, ballastMass: 0 });
-  assert.equal(r.byCase.forward.uprightsNeeded, 26);
+  assert.equal(r.byCase.forward.uprightsNeeded, 28);
   assert.equal(r.governingConstraint.id, 'stability');
 });
 
@@ -676,4 +684,106 @@ test('the rear tipping edge is unaffected by the wall bearing forward', () => {
   const borne = W.solve({ ...shallow, wallOnGround: true });
   near(borne.byCase.backward.moments.pivotX, -baseline.plateBack);
   near(borne.byCase.backward.moments.ratio, hung.byCase.backward.moments.ratio, 1e-12);
+});
+
+/* ------------------- wind on the exposed truss ------------------------- */
+
+test('only the truss the wall does not cover is in the wind', () => {
+  const L = W.layout(baseline);
+  // 6 m upright, wall from 0.5 to 5.5 -> 0.5 m showing above, 0.5 m below
+  near(L.trussExposedAbove, 0.5);
+  near(L.trussExposedBelow, 0.5);
+  near(L.trussExposedLength, 1);
+  // lattice, so only the metal counts: length × width × solidity
+  near(L.trussWindAreaPerUpright, 1 * 0.3 * 0.3);
+  // area-weighted centre of the two showing bits
+  near(L.trussWindHeight, (0.5 * 5.75 + 0.5 * 0.25) / 1);
+  near(L.trussWindHeight, 3);
+});
+
+test('a wall that fills its uprights leaves nothing in the wind', () => {
+  const L = W.layout({ ...baseline, wallBottom: 0, plateFront: 0.15, trussHeight: 5 });
+  near(L.trussExposedAbove, 0);
+  near(L.trussExposedBelow, 0);
+  near(L.trussWindAreaPerUpright, 0);
+  near(L.trussWindHeight, 0);
+
+  const r = W.solve({ ...baseline, wallBottom: 0, plateFront: 0.15, trussHeight: 5 });
+  near(r.trussWindForce, 0);
+  near(r.byCase.forward.moments.trussWindMoment, 0);
+});
+
+test('the truss wind force is pressure times coefficient times metal area', () => {
+  const r = W.solve(baseline);
+  near(r.trussWindPerUpright, 74.1125 * 1.8 * 0.09, 1e-9);
+  near(r.trussWindPerUpright, 12.006225, 1e-6);
+  near(r.trussWindForce, 6 * 12.006225, 1e-6);
+  near(r.byCase.forward.moments.trussWindMoment, 6 * 12.006225 * 3, 1e-6);
+  // and it is a small share when the wall covers most of the upright
+  assert.ok(r.trussWindShare < 0.02, `share was ${r.trussWindShare}`);
+});
+
+test('a tall upright behind a short wall is mostly sail', () => {
+  const tall = W.solve({ ...baseline, trussHeight: 20, uprights: 6 });
+  near(tall.layout.trussExposedLength, 15); // 20 − 5.5 above, 0.5 below
+  assert.ok(tall.trussWindShare > 0.4, `share was ${tall.trussWindShare}`);
+  assert.match(tall.warnings.join(' '), /Most of the wind load is on the bare truss/);
+
+  // and it costs real capacity
+  const short = W.solve({ ...baseline, trussHeight: 6, uprights: 6 });
+  assert.ok(tall.limitingWindSpeed < short.limitingWindSpeed * 0.8);
+});
+
+test('truss height now makes things worse, not better', () => {
+  // its own weight helps a little; its wind load hurts a lot more
+  const at6 = W.solve({ ...baseline, trussHeight: 6, uprights: 8 });
+  const at12 = W.solve({ ...baseline, trussHeight: 12, uprights: 8 });
+  assert.ok(at12.layout.trussMass > at6.layout.trussMass, 'heavier');
+  assert.ok(
+    at12.byCase.forward.moments.ratio < at6.byCase.forward.moments.ratio,
+    'but worse off overall'
+  );
+  assert.ok(at12.limitingWindSpeed < at6.limitingWindSpeed);
+});
+
+test('with no truss wind, height only ever helps', () => {
+  // solidity zero takes the sail away, leaving just the extra weight
+  const at6 = W.solve({ ...baseline, trussHeight: 6, trussSolidity: 0.0001, uprights: 8 });
+  const at12 = W.solve({ ...baseline, trussHeight: 12, trussSolidity: 0.0001, uprights: 8 });
+  assert.ok(at12.byCase.forward.moments.ratio > at6.byCase.forward.moments.ratio);
+});
+
+test('enough exposed truss and adding uprights makes it worse', () => {
+  /* Each upright brings its own sail. Once that costs more than the upright
+   * resists, no number of them works — which is a different answer from
+   * "you need a lot". */
+  const r = W.solve({ ...baseline, trussHeight: 20 });
+  assert.equal(W.uprightsForStability(r.layout, {
+    wallForce: r.windForce,
+    trussForcePerUpright: r.trussWindPerUpright
+  }, 1, r.safetyFactor), Infinity);
+  assert.equal(r.stabilityAchievable, false);
+  assert.equal(r.buildable, false);
+  assert.match(r.warnings.join(' '), /Adding uprights will not fix this/);
+  // here the blame belongs to the truss's own wind load
+  assert.match(r.warnings.join(' '), /wind load on its own exposed truss/);
+});
+
+test('cutting the uprights down to the wall fixes it', () => {
+  const tall = W.solve({ ...baseline, trussHeight: 20 });
+  const trimmed = W.solve({ ...baseline, trussHeight: 5.6 });
+  assert.equal(tall.stabilityAchievable, false);
+  assert.equal(trimmed.stabilityAchievable, true);
+  assert.ok(trimmed.uprights <= 7, `got ${trimmed.uprights}`);
+});
+
+test('a bare number still means the wall load alone', () => {
+  // keeps the simpler call readable, and the older tests honest
+  const L = W.layout(baseline);
+  near(W.moments(L, 6, 1000, 1).trussWindMoment, 0);
+  near(W.moments(L, 6, { wallForce: 1000 }, 1).trussWindMoment, 0);
+  near(
+    W.moments(L, 6, { wallForce: 1000, trussForcePerUpright: 10 }, 1).trussWindMoment,
+    6 * 10 * 3
+  );
 });

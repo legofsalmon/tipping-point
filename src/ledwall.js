@@ -104,6 +104,10 @@
     return value / u.toBase;
   }
 
+  function fmtPercent(fraction) {
+    return Math.round(fraction * 100) + '%';
+  }
+
   function nonNeg(value) {
     var n = Number(value);
     return isFinite(n) && n > 0 ? n : 0;
@@ -203,6 +207,28 @@
     var wallCentreHeight = wallBottom + wallHeight / 2;
 
     var trussMass = trussHeight * trussLinearMass;
+
+    /* The truss the wall covers is shielded by it, but anything sticking up
+     * above the wall — or showing below it — is out in the wind. On a tall
+     * upright behind a short wall that is most of its length, and it is what
+     * makes truss height matter at all: its own weight is small and helps,
+     * while its wind load is large and does not.
+     *
+     * A lattice is not a solid plate, so only the fraction of its projected
+     * face that is actually metal counts. */
+    var trussSolidity = Math.min(1, positive(input.trussSolidity, 0.3));
+    var aboveWall = Math.max(0, trussHeight - (wallBottom + wallHeight));
+    var belowWall = Math.min(wallBottom, trussHeight);
+    var trussExposedLength = aboveWall + belowWall;
+    var trussWindAreaPerUpright = trussExposedLength * trussDepth * trussSolidity;
+
+    /* Area-weighted centre of the exposed parts, for the moment arm. */
+    var trussWindHeight = 0;
+    if (trussExposedLength > EPS) {
+      trussWindHeight =
+        (aboveWall * (wallBottom + wallHeight + aboveWall / 2) +
+          belowWall * (belowWall / 2)) / trussExposedLength;
+    }
     var plateDepth = plateFront + plateBack;
     var plateCentroidX = (plateFront - plateBack) / 2;
 
@@ -229,6 +255,12 @@
       trussDepth: trussDepth,
       trussMass: trussMass,
       trussLinearMass: trussLinearMass,
+      trussSolidity: trussSolidity,
+      trussExposedAbove: aboveWall,
+      trussExposedBelow: belowWall,
+      trussExposedLength: trussExposedLength,
+      trussWindAreaPerUpright: trussWindAreaPerUpright,
+      trussWindHeight: trussWindHeight,
 
       wallOnGround: wallOnGround,
       wallBackX: wallBackX,
@@ -277,6 +309,20 @@
    * ------------------------------------------------------------------ */
 
   /**
+   * Wind loads, which now come in two parts: the wall, and the exposed truss
+   * on each upright. A bare number is taken as the wall alone, so the simpler
+   * call still reads well.
+   */
+  function asLoads(wind) {
+    if (wind == null) return { wallForce: 0, trussForcePerUpright: 0 };
+    if (typeof wind === 'number') return { wallForce: wind, trussForcePerUpright: 0 };
+    return {
+      wallForce: wind.wallForce || 0,
+      trussForcePerUpright: wind.trussForcePerUpright || 0
+    };
+  }
+
+  /**
    * Moments about one baseplate edge, for the whole structure.
    *
    * @param {object} L layout
@@ -285,7 +331,8 @@
    * @param {1|-1} dir +1 tips forward over the front edge, -1 tips backward
    *   over the rear edge
    */
-  function moments(L, n, windForce, dir) {
+  function moments(L, n, wind, dir) {
+    var loads = asLoads(wind);
     var pivotX = dir > 0 ? L.frontPivotX : -L.plateBack;
 
     /* Lever arm of a mass about the pivot, measured positive when it sits
@@ -294,8 +341,11 @@
       return dir > 0 ? pivotX - x : x - pivotX;
     };
 
+    var wallMoment = loads.wallForce * L.wallCentreHeight;
+    var trussMoment = n * loads.trussForcePerUpright * L.trussWindHeight;
+
     var restoring = 0;
-    var overturning = windForce * L.wallCentreHeight;
+    var overturning = wallMoment + trussMoment;
     var items = [];
 
     var add = function (part, count) {
@@ -321,8 +371,11 @@
     return {
       dir: dir,
       pivotX: pivotX,
-      windForce: windForce,
-      windMoment: windForce * L.wallCentreHeight,
+      windForce: loads.wallForce,
+      trussWindForce: n * loads.trussForcePerUpright,
+      windMoment: wallMoment + trussMoment,
+      wallWindMoment: wallMoment,
+      trussWindMoment: trussMoment,
       windArm: L.wallCentreHeight,
       restoring: restoring,
       overturning: overturning,
@@ -359,12 +412,19 @@
    * Returns Infinity when no number of uprights can do it — which means the
    * geometry itself is wrong, not that you need more legs.
    */
-  function uprightsForStability(L, windForce, dir, safety) {
+  function uprightsForStability(L, wind, dir, safety) {
+    var loads = asLoads(wind);
     var s = momentSplit(L, dir);
-    var need = safety * (windForce * L.wallCentreHeight + s.fixed.overturning) - s.fixed.restoring;
+
+    var need =
+      safety * (loads.wallForce * L.wallCentreHeight + s.fixed.overturning) - s.fixed.restoring;
     if (need <= 0) return 1;
 
-    var per = s.perUpright.restoring - safety * s.perUpright.overturning;
+    /* Each upright brings its own exposed truss with it, so its wind load is a
+     * per-upright *overturning* term. Enough of it and adding uprights makes
+     * things worse rather than better — which is what the guard below catches. */
+    var perTrussWind = loads.trussForcePerUpright * L.trussWindHeight;
+    var per = s.perUpright.restoring - safety * (s.perUpright.overturning + perTrussWind);
     if (per <= EPS) return Infinity;
     return Math.ceil(need / per);
   }
@@ -374,19 +434,23 @@
    * uprights. This is the number worth putting on the production's wind
    * action plan.
    */
-  function limitingWindSpeed(L, n, dir, safety, coefficient, density) {
+  function limitingWindSpeed(L, n, dir, safety, coefficient, density, trussCoefficient) {
     var s = moments(L, n, 0, dir); // moments with no wind at all
     var allowed = s.restoring / safety - s.overturning;
     if (allowed <= 0) return 0; // already over its limit standing still
-    if (L.wallCentreHeight <= EPS || L.area <= EPS || coefficient <= EPS) return Infinity;
 
-    var force = allowed / L.wallCentreHeight;
-    var pressure = force / (coefficient * L.area);
-    return Math.sqrt((2 * pressure) / (density || AIR_DENSITY));
+    /* Both the wall and the exposed truss grow with the same pressure, so add
+     * their moments per unit pressure and invert once. */
+    var perPressure =
+      coefficient * L.area * L.wallCentreHeight +
+      n * (trussCoefficient || 0) * L.trussWindAreaPerUpright * L.trussWindHeight;
+    if (perPressure <= EPS) return Infinity;
+
+    return Math.sqrt((2 * (allowed / perPressure)) / (density || AIR_DENSITY));
   }
 
   /** Ballast per baseplate needed to hold the given case. */
-  function ballastForCase(L, n, windForce, dir, safety) {
+  function ballastForCase(L, n, wind, dir, safety) {
     var pivotX = dir > 0 ? L.frontPivotX : -L.plateBack;
     var arm = dir > 0 ? pivotX - L.ballastX : L.ballastX - pivotX;
     if (arm <= EPS) return Infinity; // ballast there would not help
@@ -394,7 +458,7 @@
     /* Take the moments as they stand and subtract whatever the ballast
      * currently contributes, rather than rebuilding a bare layout — one less
      * field list to keep in step. */
-    var m = moments(L, n, windForce, dir);
+    var m = moments(L, n, wind, dir);
     var bareRestoring = m.restoring - n * L.ballastMass * L.g * arm;
 
     var shortfall = safety * m.overturning - bareRestoring;
@@ -425,8 +489,12 @@
     var maxSpacing = positive(input.maxSpacing, 3);
     var maxLoadPerUpright = positive(input.maxLoadPerUpright, 500);
 
+    var trussCoefficient = positive(input.trussForceCoefficient, 1.8);
+
     var pressure = windPressure(windSpeed, density);
     var windForce = pressure * coefficient * L.area;
+    var trussWindPerUpright = pressure * trussCoefficient * L.trussWindAreaPerUpright;
+    var loads = { wallForce: windForce, trussForcePerUpright: trussWindPerUpright };
 
     /* --------------------------- how many uprights ------------------- */
 
@@ -438,8 +506,8 @@
       ? Math.ceil(L.wallMass / maxLoadPerUpright) + 1
       : 2;
 
-    var forwardNeed = uprightsForStability(L, windForce, 1, safety);
-    var backwardNeed = uprightsForStability(L, windForce, -1, safety);
+    var forwardNeed = uprightsForStability(L, loads, 1, safety);
+    var backwardNeed = uprightsForStability(L, loads, -1, safety);
     var byStability = Math.max(forwardNeed, backwardNeed);
 
     var candidates = [
@@ -465,20 +533,20 @@
         id: 'forward',
         label: 'Wind from behind, tipping forward',
         note: 'over the front edge of the baseplates — the wall\'s own weight works against you here',
-        moments: moments(L, uprights, windForce, 1),
-        ballast: ballastForCase(L, uprights, windForce, 1, safety),
-        limitingWind: limitingWindSpeed(L, uprights, 1, safety, coefficient, density),
-        tippingWind: limitingWindSpeed(L, uprights, 1, 1, coefficient, density),
+        moments: moments(L, uprights, loads, 1),
+        ballast: ballastForCase(L, uprights, loads, 1, safety),
+        limitingWind: limitingWindSpeed(L, uprights, 1, safety, coefficient, density, trussCoefficient),
+        tippingWind: limitingWindSpeed(L, uprights, 1, 1, coefficient, density, trussCoefficient),
         uprightsNeeded: forwardNeed
       },
       {
         id: 'backward',
         label: 'Wind on the face, tipping backward',
         note: 'over the rear edge — the wall hangs forward of it, so its weight helps hold things down',
-        moments: moments(L, uprights, windForce, -1),
-        ballast: ballastForCase(L, uprights, windForce, -1, safety),
-        limitingWind: limitingWindSpeed(L, uprights, -1, safety, coefficient, density),
-        tippingWind: limitingWindSpeed(L, uprights, -1, 1, coefficient, density),
+        moments: moments(L, uprights, loads, -1),
+        ballast: ballastForCase(L, uprights, loads, -1, safety),
+        limitingWind: limitingWindSpeed(L, uprights, -1, safety, coefficient, density, trussCoefficient),
+        tippingWind: limitingWindSpeed(L, uprights, -1, 1, coefficient, density, trussCoefficient),
         uprightsNeeded: backwardNeed
       },
       {
@@ -528,11 +596,23 @@
         );
       }
       if (!isFinite(byStability)) {
+        /* Adding uprights makes it worse, but say *why*: either each one is
+         * bringing its own sail, or the ballast on it sits the wrong side of
+         * the pivot. They call for different fixes. */
+        var failDir = isFinite(forwardNeed) ? -1 : 1;
+        var split = momentSplit(L, failDir);
+        var perTrussWind = trussWindPerUpright * L.trussWindHeight;
+        var cause = perTrussWind > split.perUpright.overturning
+          ? 'each one brings ' + Math.round(perTrussWind) + ' N·m of wind load on its own ' +
+            'exposed truss, against the ' + Math.round(split.perUpright.restoring) +
+            ' N·m it holds down'
+          : 'with the baseplate reaching only ' + (L.plateFront * 1000).toFixed(0) +
+            ' mm in front of the truss, each one adds more overturning than it resists';
+
         warnings.push(
-          'No number of uprights fixes this: with the baseplate reaching only ' +
-            (L.plateFront * 1000).toFixed(0) + ' mm in front of the truss, each one you add ' +
-            'brings more overturning than it resists. Reach further forward, or move the ' +
-            'ballast back.'
+          'Adding uprights will not fix this: ' + cause + '. What will: cutting the ' +
+            'uprights down closer to the wall, reaching further forward with the ' +
+            'baseplates, or more ballast on each of them.'
         );
       }
       if (cases[2].moments.ratio < safety) {
@@ -574,6 +654,17 @@
             uprights + ' uprights, against the ' + Math.round(L.ballastMass) + ' kg entered.'
         );
       }
+      if (
+        governingCase.moments.trussWindMoment >
+        governingCase.moments.wallWindMoment * 0.5 + EPS
+      ) {
+        warnings.push(
+          'Most of the wind load is on the bare truss, not the wall: ' +
+            fmtPercent(governingCase.moments.trussWindMoment / governingCase.moments.windMoment) +
+            ' of it. Uprights that stand well above the wall cost you more than they ' +
+            'contribute — cut them down to the wall, or expect a lot of ballast.'
+        );
+      }
       if (spacing > maxSpacing + 1e-9) {
         warnings.push(
           'Uprights would sit ' + spacing.toFixed(2) + ' m apart, wider than the ' +
@@ -607,6 +698,16 @@
       windPressure: pressure,
       windForce: windForce,
       windForcePerUpright: uprights > 0 ? windForce / uprights : windForce,
+      trussForceCoefficient: trussCoefficient,
+      trussWindPerUpright: trussWindPerUpright,
+      trussWindForce: uprights * trussWindPerUpright,
+      /* What share of the overturning the exposed truss is responsible for —
+       * small for a wall that fills its uprights, large for a tall upright
+       * behind a short wall. */
+      trussWindShare: (function () {
+        var total = governingCase.moments.windMoment;
+        return total > EPS ? governingCase.moments.trussWindMoment / total : 0;
+      })(),
       beaufort: beaufort(windSpeed),
       beaufortName: BEAUFORT_NAMES[beaufort(windSpeed)],
 
@@ -623,6 +724,9 @@
       /* Passing the overturning check is not the same as being buildable: at
        * some point the baseplates would have to overlap, or no number of
        * uprights would help. */
+      /* Whether any number of uprights can hold it — distinct from needing a
+       * lot of them. False when each upright brings more wind than it resists. */
+      stabilityAchievable: isFinite(byStability),
       buildable:
         isFinite(byStability) &&
         !(L.plateWidth > EPS && spacing + EPS < L.plateWidth),
@@ -661,6 +765,7 @@
     toBase: toBase,
     fromBase: fromBase,
     windPressure: windPressure,
+    asLoads: asLoads,
     beaufort: beaufort,
     layout: layout,
     moments: moments,

@@ -78,6 +78,8 @@
 
   var LED_SCALARS = [
     { id: 'forceCoefficient', key: 'cf', def: 1.3 },
+    { id: 'trussForceCoefficient', key: 'tc', def: 1.8 },
+    { id: 'trussSolidity', key: 'ts', def: 0.3 },
     { id: 'safetyFactor', key: 'sf', def: 1.5 },
     { id: 'ledGravity', key: 'lg', def: P.G_STANDARD }
   ];
@@ -1799,6 +1801,11 @@
 
   /* Ballast arrives as discrete weights, so round up to something orderable
    * rather than quoting a figure to the gram. */
+  function fmtPercentLabel(fraction) {
+    if (!isFinite(fraction)) return '—';
+    return fraction < 0.005 ? 'under 1%' : Math.round(fraction * 100) + '%';
+  }
+
   function roundBallast(kg) {
     if (!isFinite(kg) || kg <= 0) return 0;
     var step = currentSystem === 'imperial' ? 4.5359237 : 5; // 10 lb or 5 kg
@@ -1842,6 +1849,8 @@
       maxLoadPerUpright: v('maxLoadPerUpright'),
 
       forceCoefficient: scalar('forceCoefficient', 1.3),
+      trussForceCoefficient: scalar('trussForceCoefficient', 1.8),
+      trussSolidity: scalar('trussSolidity', 0.3),
       safetyFactor: scalar('safetyFactor', 1.5),
       gravity: scalar('ledGravity', P.G_STANDARD)
     };
@@ -1881,15 +1890,25 @@
 
     var L = result.layout;
 
-    $('led-count').textContent = String(result.uprights);
-    $('led-count-unit').textContent = result.uprights === 1 ? 'upright' : 'uprights';
-
-    $('led-note').innerHTML =
-      'across ' + esc(fmtLength(L.wallWidth)) + ' of wall — ' +
-      (result.uprights > 1
-        ? esc(fmtLength(result.spacing)) + ' between centres'
-        : 'a single upright') +
-      '. Each one carries ' + esc(fmtMass(result.loadPerUpright)) + '.';
+    /* When each upright brings more wind than it resists there is no answer to
+     * quote, and quoting the fallback count would be a lie. */
+    if (!result.stabilityAchievable) {
+      $('led-count').textContent = '—';
+      $('led-count-unit').textContent = 'no number works';
+      $('led-note').innerHTML =
+        'Every upright added brings more exposed truss than it resists, so more of them ' +
+        'makes it worse. Cut the uprights down closer to the wall, reach further forward, ' +
+        'or move the ballast back.';
+    } else {
+      $('led-count').textContent = String(result.uprights);
+      $('led-count-unit').textContent = result.uprights === 1 ? 'upright' : 'uprights';
+      $('led-note').innerHTML =
+        'across ' + esc(fmtLength(L.wallWidth)) + ' of wall — ' +
+        (result.uprights > 1
+          ? esc(fmtLength(result.spacing)) + ' between centres'
+          : 'a single upright') +
+        '. Each one carries ' + esc(fmtMass(result.loadPerUpright)) + '.';
+    }
 
     $('led-governing').innerHTML = result.usingOverride
       ? 'You have set this by hand. The checks want <strong>' +
@@ -1957,7 +1976,14 @@
     );
     out.push(stat('Wind pressure', fmt(result.windPressure, 1) + ' N/m²', 'half rho v squared'));
     out.push(
-      stat('Per upright', fmtForce(result.windForcePerUpright, forceUnit), 'of that wind load')
+      stat('Per upright', fmtForce(result.windForcePerUpright, forceUnit), 'of that wall load')
+    );
+    out.push(
+      stat(
+        'Wind on bare truss',
+        fmtForce(result.trussWindForce, forceUnit),
+        fmtPercentLabel(result.trussWindShare) + ' of the overturning'
+      )
     );
     out.push(
       stat('Wall hangs', fmtLength(L.wallX), 'in front of the truss centre')
@@ -2030,10 +2056,18 @@
     lines.push('');
     lines.push('  wind pressure  q = 0.5 x ' + fmt(result.airDensity, 3) + ' x ' +
       fmt(result.windSpeed, 2) + '²  = ' + fmt(result.windPressure, 1) + ' N/m²');
-    lines.push('  wind force     F = q x ' + fmt(result.forceCoefficient, 2) + ' x ' +
+    lines.push('  on the wall    F = q x ' + fmt(result.forceCoefficient, 2) + ' x ' +
       fmt(L.area, 2) + ' m²  = ' + fmt(result.windForce, 0) + ' N');
-    lines.push('  acting at        ' + fmt(L.wallCentreHeight, 2) +
-      ' m up, so a moment of ' + fmt(m.windMoment, 0) + ' N·m');
+    lines.push('                     at ' + fmt(L.wallCentreHeight, 2) + ' m up  = ' +
+      fmt(m.wallWindMoment, 0) + ' N·m');
+    if (L.trussExposedLength > 1e-6) {
+      lines.push('  on bare truss  F = q x ' + fmt(result.trussForceCoefficient, 2) + ' x ' +
+        fmt(L.trussWindAreaPerUpright, 3) + ' m²  = ' +
+        fmt(result.trussWindPerUpright, 0) + ' N each');
+      lines.push('                     at ' + fmt(L.trussWindHeight, 2) + ' m up, x ' +
+        result.uprights + '  = ' + fmt(m.trussWindMoment, 0) + ' N·m');
+    }
+    lines.push('  total wind moment  ' + fmt(m.windMoment, 0) + ' N·m');
     lines.push('');
     lines.push('  holding down   ' + fmt(m.restoring, 0) + ' N·m');
     lines.push('  pushing over   ' + fmt(m.overturning, 0) + ' N·m');
@@ -2504,6 +2538,15 @@
 
     var L0 = result.layout;
 
+    /* The exposed truss is why upright height matters at all — its own weight
+     * helps a little, its wind load hurts a lot more. */
+    var exposed = L0.trussExposedLength;
+    $('truss-wind-hint').textContent = exposed > 1e-6
+      ? fmtLength(exposed) + ' of upright is out in the wind, past the wall — ' +
+        fmt(L0.trussWindAreaPerUpright, 2) + ' m² of metal each, ' +
+        fmtPercentLabel(result.trussWindShare) + ' of the overturning.'
+      : 'The wall covers the whole upright, so none of it is catching wind.';
+
     /* What the entered height actually resolved to, and why. */
     var bottomHint = '';
     if (L0.wallBottomRaised) {
@@ -2557,26 +2600,26 @@
         fmt(LW.fromBase(result.windSpeed, 'km/h', LW.SPEED_UNITS), 0) + ' km/h.'
       : 'Still air.';
 
-    if (result.ok) {
-      $('diagram-led-side').innerHTML = buildLedSideView(result);
-      $('diagram-led-front').innerHTML = buildLedFrontView(result);
+    /* Drawn even when an input is out of range — a frozen picture beside a
+     * changed number reads as the app being broken, and seeing the wall poke
+     * out above a too-short upright is the clearest way to show the problem.
+     * The builders all clamp degenerate geometry themselves. */
+    $('diagram-led-side').innerHTML = buildLedSideView(result);
+    $('diagram-led-front').innerHTML = buildLedFrontView(result);
 
-      /* Hand the structure to the simulation, with the slider scaled to run a
-       * bit past the wind it can actually stand. */
-      sim.body = ledSimBody(result);
-      /* 100% on the slider is the wind it actually goes over at, so the same
-       * "just under holds, just over goes" trick works as in pole mode. */
-      sim.maxForce = Math.max(
-        LW.windPressure(Math.max(result.tippingWindSpeed, 0.1), result.airDensity) *
-          result.forceCoefficient * result.layout.area,
-        1
-      );
-      sim.state.theta = Math.min(sim.state.theta, sim.body.thetaEnd);
-      if (sim.state.theta < sim.body.thetaEnd) sim.state.fallen = false;
-      updateSimForceLabel();
-      renderSimReadouts();
-      if (sim.raf == null) drawSim();
-    }
+    /* 100% on the slider is the wind it actually goes over at, so the same
+     * "just under holds, just over goes" trick works as in pole mode. */
+    sim.body = ledSimBody(result);
+    sim.maxForce = Math.max(
+      LW.windPressure(Math.max(result.tippingWindSpeed, 0.1), result.airDensity) *
+        result.forceCoefficient * result.layout.area,
+      1
+    );
+    sim.state.theta = Math.min(sim.state.theta, sim.body.thetaEnd);
+    if (sim.state.theta < sim.body.thetaEnd) sim.state.fallen = false;
+    updateSimForceLabel();
+    renderSimReadouts();
+    if (sim.raf == null) drawSim();
 
     save();
   }
