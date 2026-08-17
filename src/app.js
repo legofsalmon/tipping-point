@@ -63,6 +63,7 @@
     { id: 'trussHeight', kind: 'length', key: 'th', metric: [6, 'm'], imperial: [20, 'ft'] },
     { id: 'trussLinearMass', kind: 'linear', key: 'tl', metric: [6.5, 'kg/m'], imperial: [4.4, 'lb/ft'] },
     { id: 'trussDepth', kind: 'length', key: 'td', metric: [300, 'mm'], imperial: [12, 'in'] },
+    { id: 'trussWidth', kind: 'length', key: 'tw', metric: [300, 'mm'], imperial: [12, 'in'] },
 
     { id: 'plateFront', kind: 'length', key: 'bf', metric: [500, 'mm'], imperial: [20, 'in'] },
     { id: 'plateBack', kind: 'length', key: 'bb', metric: [1000, 'mm'], imperial: [39, 'in'] },
@@ -1835,6 +1836,7 @@
 
       trussHeight: v('trussHeight'),
       trussDepth: v('trussDepth'),
+      trussWidth: v('trussWidth'),
       trussLinearMass: v('trussLinearMass'),
 
       plateFront: plateFront,
@@ -1976,7 +1978,11 @@
     );
     out.push(stat('Wind pressure', fmt(result.windPressure, 1) + ' N/m²', 'half rho v squared'));
     out.push(
-      stat('Per upright', fmtForce(result.windForcePerUpright, forceUnit), 'of that wall load')
+      stat(
+        'Worst upright',
+        fmtForce(result.windForcePerUpright, forceUnit),
+        'its share of that wall load'
+      )
     );
     if (L.wallCantilever > 1e-6) {
       out.push(
@@ -2005,7 +2011,13 @@
         L.pivotIsWallFoot ? 'centre to the wall’s footing' : 'centre to front edge'
       )
     );
-    out.push(stat('Spacing', fmtLength(result.spacing), 'upright to upright'));
+    out.push(
+      stat(
+        'Spacing',
+        fmtLength(result.spacing),
+        'centres, over the ' + fmtLength(L.centreSpan) + ' between the end ones'
+      )
+    );
     $('led-stats').innerHTML = out.join('');
   }
 
@@ -2106,6 +2118,20 @@
     $('led-working').textContent = lines.join('\n');
   }
 
+  /**
+   * The dimensions a crew actually marks the deck out from, measured from the
+   * left-hand end of the wall. Long runs get the ends and an ellipsis rather
+   * than thirty numbers.
+   */
+  function settingOut(result) {
+    var c = result.run.centres;
+    var one = function (x) {
+      return fmtLength(x);
+    };
+    if (c.length <= 10) return c.map(one).join(', ');
+    return c.slice(0, 4).map(one).join(', ') + ', … , ' + one(c[c.length - 1]);
+  }
+
   function ledSummaryText(result) {
     if (!result.ok) return result.errors.join(' ');
     var L = result.layout;
@@ -2117,11 +2143,15 @@
       'Bottom of wall ' + fmtLength(L.wallBottom) + ' above the ground, cabinets ' +
         fmtLength(L.wallDepth) + ' deep',
       'Uprights: ' + fmtLength(L.trussHeight) + ' of ' + fmt(L.trussLinearMass, 1) +
-        ' kg/m truss, ' + fmtLength(L.trussDepth) + ' deep',
+        ' kg/m truss, ' + fmtLength(L.trussDepth) + ' deep by ' +
+        fmtLength(L.trussWidth) + ' across',
       'Baseplates: ' + fmtLength(L.plateFront) + ' in front, ' + fmtLength(L.plateBack) +
         ' behind, ' + fmtMass(L.plateMass) + ' each',
       '',
       'UPRIGHTS: ' + result.uprights + ' at ' + fmtLength(result.spacing) + ' centres',
+      '  end ones set ' + fmtLength(L.endInset) + ' in so no truss shows past the wall',
+      '  each carries ' + fmtLength(result.tributary) + ' of wall width',
+      '  centres from the left end: ' + settingOut(result),
       '  decided by: ' + result.governingConstraint.label,
       '  spacing limit wants ' + result.constraints.filter(function (c) {
         return c.id === 'spacing';
@@ -2371,13 +2401,29 @@
     var parts = [];
     parts.push(line(10, groundY, VW - 10, groundY, 'dg-ground'));
 
-    // uprights behind the wall
-    var trussW = Math.max(2, L.trussDepth * scale);
+    /* Uprights behind the wall, tucked in at the ends so their outer faces
+     * line up with the ends of the wall rather than straddling them. */
+    var trussW = Math.max(2, L.trussWidth * scale);
+    var centres = result.run.centres;
+
+    /* Both ends worked from the same rounded edges the wall is drawn to. A thin
+     * upright gets drawn at a 2 px minimum, which centred on its true position
+     * would poke out past the end of the wall — in the one drawing meant to show
+     * that it does not — and rounding each rect on its own would leave a tenth
+     * of a pixel showing even when the geometry is exact. */
+    var wallL = r1(X(0));
+    var wallR = r1(X(L.wallWidth));
+
     for (var i = 0; i < n; i += 1) {
-      var x = n > 1 ? (i * L.wallWidth) / (n - 1) : L.wallWidth / 2;
+      var x = centres[i] == null ? L.wallWidth / 2 : centres[i];
+      var left = i === 0
+        ? wallL
+        : i === n - 1
+          ? wallR - r1(trussW)
+          : r1(X(x) - trussW / 2);
       parts.push(
         tag('rect', {
-          x: r1(X(x) - trussW / 2),
+          x: left,
           y: r1(Y(L.trussHeight)),
           width: r1(trussW),
           height: r1(groundY - Y(L.trussHeight)),
@@ -2400,19 +2446,19 @@
     // the wall itself, over the top
     parts.push(
       tag('rect', {
-        x: r1(X(0)),
+        x: wallL,
         y: r1(Y(L.wallTop)),
-        width: r1(L.wallWidth * scale),
+        width: r1(wallR - wallL),
         height: r1(Math.max(2, (L.wallTop - L.wallBottom) * scale)),
         class: 'dg-wall',
         opacity: 0.9
       })
     );
 
-    // spacing dimension between the first two uprights
+    // spacing dimension between the first two upright centres
     if (n > 1 && result.ok && result.stabilityAchievable) {
-      var x0 = X(0);
-      var x1 = X(result.spacing);
+      var x0 = X(centres[0]);
+      var x1 = X(centres[1]);
       var dimY = groundY + 16;
       parts.push(
         dimension(x0, dimY, x1, dimY, true, function () {
@@ -2613,12 +2659,45 @@
     }
     $('truss-wind-hint').textContent = trussHint;
 
+    /* Whether the run is actually out of sight, which is the point of setting
+     * the ends in. Sideways is handled; up and down are down to the heights. */
+    var show = result.showing;
+    var widthHint;
+    if (L0.tooNarrowToHide) {
+      widthHint = 'Wider than the wall itself, so it cannot be hidden behind it.';
+    } else {
+      var still = [];
+      if (show.above > 1e-6) still.push(fmtLength(show.above) + ' of upright above the wall');
+      if (show.below > 1e-6) still.push(fmtLength(show.below) + ' below it');
+      /* Floor level, and normally dressed out — worth saying, not worth a
+       * warning, which is why it lives here rather than in the notes. */
+      if (show.plateEnds > 1e-6) {
+        still.push('the baseplates by ' + fmtLength(show.plateEnds) + ' at each end');
+      }
+      if (show.plateToe > 1e-6) {
+        still.push(fmtLength(show.plateToe) + ' of plate out in front of the wall');
+      }
+      widthHint = 'End uprights set ' + fmtLength(L0.endInset) +
+        ' in from the ends of the wall, so their outer faces line up with it and no ' +
+        'truss shows past the sides — flush dead ahead, though its back face is ' +
+        fmtLength(L0.trussDepth + L0.wallDepth) + ' behind the wall, so it edges back into ' +
+        'view as you walk round. ' +
+        (still.length
+          ? 'Still in sight: ' + still.join(', ') + '. '
+          : 'Nothing of it shows from the front. ') +
+        'The run wants ' + fmtLength(show.footprint) + ' of floor.';
+    }
+    $('truss-width-hint').textContent = widthHint;
+
     /* What the entered height actually resolved to, and why. */
     var bottomHint = '';
     if (L0.wallBottomRaised) {
       bottomHint = 'Raised to ' + fmtLength(L0.wallBottom) +
         ' — the baseplate runs under the wall, so it cannot start any lower than the top ' +
-        'of the plate.';
+        'of the plate. That leaves the same amount of upright showing under the wall, and ' +
+        'the only way to close it is to pull the plate back behind the truss face — which ' +
+        'is the very reach that stops the thing tipping forward. It is a trade, not an ' +
+        'oversight.';
     } else if (L0.restsOnPlate) {
       bottomHint = 'Sitting right on the baseplate.';
     } else if (L0.wallBottom > 1e-9) {
@@ -2823,7 +2902,10 @@
       if (!this.value) return;
       var parts = this.value.split('|');
       setFieldBase(fieldById('trussLinearMass'), Number(parts[0]));
+      /* The presets are all box truss, which is square: a 300 mm box is
+       * 300 mm both ways. Anything else has to be typed in. */
       setFieldBase(fieldById('trussDepth'), Number(parts[1]));
+      setFieldBase(fieldById('trussWidth'), Number(parts[1]));
       this.value = '';
       update();
     });

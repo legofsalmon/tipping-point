@@ -261,6 +261,13 @@ its projected face that is actually metal is loaded — the solidity, around 0.3
 for box truss — and a lattice takes a higher force coefficient per unit of solid
 area than a flat wall does, about 1.8. Both are inputs.
 
+The face the wind sees is the one *across* the wall, the same way the wall's own
+area is its width by its height. The depth runs along the wind and contributes
+nothing to the projection, with the sheltered leeward face of the lattice folded
+into that 1.8 instead. On box truss the two dimensions are equal so it makes no
+difference; on a ladder truss, deep front-to-back and thin across, it is the
+difference between the right answer and one several times too large.
+
 On the reference wall, holding everything else still:
 
 | Upright | Exposed | Truss's share of the overturning | Good for |
@@ -321,13 +328,93 @@ something you can actually order.
 wall at 40 kg/m² — 2 tonnes of panel — on 6 m of 300 mm box truss, baseplates
 reaching 500 mm forward and 1 m back, in an 11 m/s (25 mph) wind.
 
-- **6 uprights** at 2 m centres — decided by stability, not spacing or load
-- **280 kg of ballast** per baseplate, 1680 kg in total
-- Good for **11.3 m/s** with 1.5× in hand; over it goes at **13.8 m/s**
-- Each upright carries 439 kg of wall and truss
+- **6 uprights** at 1.94 m centres — decided by stability, not spacing or load
+- **285 kg of ballast** per baseplate, 1710 kg in total
+- Good for **11.2 m/s** with 1.5× in hand; over it goes at **13.7 m/s**
+- Each upright carries 427 kg of wall and truss
 
-Take the ballast away and it wants 26 uprights. Reach 900 mm forward instead of
-500 mm and it drops to 4. That is the whole point of having it interactive.
+Take the ballast away and stability alone wants 28 uprights — at which point the
+600 mm baseplates would be overlapping, so the app calls it unbuildable rather
+than pretending. Reach 900 mm forward instead of 500 mm and it drops to 5, and
+the spacing limit takes over as what decides it. That is the whole point of
+having it interactive.
+
+### Keeping the truss out of sight behind the wall
+
+The uprights stand behind the wall, so from the front they should not be visible
+at all. Sideways that is a question of where they are set out: putting the end
+upright's *centre* on the end of the wall leaves half its width sticking out past
+it, which is exactly what you see on a badly set-out screen. So the outer face
+goes flush with the end of the wall instead, and the centre sits half an upright
+width in.
+
+That changes the arithmetic of the whole run. With an upright width `tw`, the `n`
+centres span `W − tw` rather than the full width, so every bay is a little
+shorter than the naive figure:
+
+```
+spacing = (W − tw) / (n − 1)
+```
+
+On the default wall that is 1.94 m rather than 2.00 m, and it means the inset can
+never cost you an upright — the bays shrink, so the spacing and load limits are
+if anything easier to meet.
+
+Each upright then carries the wall out to the middle of the bay either side of
+it, and the two end ones also carry the strip that overhangs them:
+
+```
+interior share = spacing
+end share      = spacing / 2 + tw / 2
+```
+
+Those add back up to the full width. An interior upright carries the most in any
+sane arrangement, so it is the one the weight limit is checked against — with one
+exception, which is a run of only two uprights. There is no interior one then,
+and each takes half the wall rather than the whole of it. The old formula had
+that case twice as heavy as it really is.
+
+That split treats each bay as simply supported, which is the conventional first
+pass and reasonable for LED cabinets hanging as discrete columns. A wall frame
+stiff enough to act continuously over the supports throws rather more onto the
+interior uprights — 10% to 25% more, depending on the number of bays — and
+nothing here accounts for that. It is one more reason the load figure is a
+sizing guide rather than a reaction to design a baseplate from.
+
+None of this touches overturning. The inset moves mass sideways *along* the edge
+the structure tips about, and the moment balance only cares about how far forward
+or back things sit — so the required count for stability, the limiting wind speed
+and the ballast are all identical either way. What it changes is the spacing you
+set out to, the load each upright carries, and whether anyone can see the truss.
+
+One practical consequence: the pitch no longer divides the wall width evenly, so
+the uprights do not land on cabinet joints. 1.94 m on a 500 mm cabinet grid is
+not a joint. If you would rather pin them to the grid, the bays come out uneven
+and the number to check is the *widest* one, not the average — the app works even
+bays over the inset run, so it will read a little optimistic in that case. The
+setting-out dimensions it lists are from the left-hand end of the wall.
+
+Three things it cannot hide, and the app says so rather than leaving you to
+notice on site:
+
+- **Above and below.** Uprights taller than the top of the wall show over it, and
+  a wall held up off the ground leaves the legs showing under it. On the defaults
+  that is 500 mm at each end of a 6 m upright behind a wall running 0.5 m to
+  5.5 m up. The bottom one is a genuine trade rather than an oversight: the wall
+  cannot start lower than the top of the baseplate running under it, and the only
+  way to close that gap is to pull the plate back behind the truss face — which
+  is the very forward reach that stops the thing tipping over.
+- **The baseplates.** They are wider than the truss they carry — 600 mm against
+  300 mm on the defaults — so the end ones stick out 150 mm each side, and the
+  run wants 10.3 m of floor for a 10 m wall. They also reach 230 mm out in front
+  of the wall face, which is the part people trip over. At floor level and
+  normally dressed out, which is why these are reported as notes rather than
+  warnings.
+- **Anything off-axis.** Flush faces hide the truss from dead ahead only. The
+  truss body sits the best part of half a metre behind the wall's front face, so
+  it edges back into view as you walk round: roughly 150 mm at 20° off, 240 mm at
+  30°. Insetting further is the wrong answer — it costs bay width and buys very
+  little. A soft-goods return, or a wall wider than the run, is the answer.
 
 ### What it does not do
 

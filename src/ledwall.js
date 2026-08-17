@@ -159,6 +159,13 @@
     var trussDepth = nonNeg(input.trussDepth);
     var trussLinearMass = nonNeg(input.trussLinearMass);
 
+    /* Depth is front to back, width is across the wall. They are the same
+     * thing on box truss, which is square, so the width falls back to the
+     * depth when it has not been given. Ladder truss is not square and the
+     * difference matters here, because the width is what shows past the ends
+     * of the wall. */
+    var trussWidth = nonNeg(input.trussWidth) || trussDepth;
+
     var plateFront = nonNeg(input.plateFront);
     var plateBack = nonNeg(input.plateBack);
     var plateWidth = nonNeg(input.plateWidth);
@@ -224,12 +231,18 @@
      * while its wind load is large and does not.
      *
      * A lattice is not a solid plate, so only the fraction of its projected
-     * face that is actually metal counts. */
+     * face that is actually metal counts.
+     *
+     * The face the wind sees is the one across the wall, the same way the wall's
+     * own area is its width by its height — the depth runs along the wind and
+     * contributes nothing to the projection, with the leeward face of the
+     * lattice folded into the force coefficient instead. That distinction only
+     * shows up on truss that is not square. */
     var trussSolidity = Math.min(1, positive(input.trussSolidity, 0.3));
     var aboveWall = Math.max(0, trussHeight - (wallBottom + wallHeight));
     var belowWall = Math.min(wallBottom, trussHeight);
     var trussExposedLength = aboveWall + belowWall;
-    var trussWindAreaPerUpright = trussExposedLength * trussDepth * trussSolidity;
+    var trussWindAreaPerUpright = trussExposedLength * trussWidth * trussSolidity;
 
     /* Area-weighted centre of the exposed parts, for the moment arm. */
     var trussWindHeight = 0;
@@ -238,6 +251,14 @@
         (aboveWall * (wallBottom + wallHeight + aboveWall / 2) +
           belowWall * (belowWall / 2)) / trussExposedLength;
     }
+    /* Nothing of the truss should show past the wall from the front, so the
+     * outer face of each end upright sits flush with the end of the wall. That
+     * puts its centre half an upright width in, and leaves the centres of the
+     * whole run spanning this much rather than the full width. */
+    var endInset = Math.min(trussWidth / 2, wallWidth / 2);
+    var centreSpan = Math.max(0, wallWidth - trussWidth);
+    var tooNarrowToHide = wallWidth > EPS && trussWidth > wallWidth + EPS;
+
     var plateDepth = plateFront + plateBack;
     var plateCentroidX = (plateFront - plateBack) / 2;
 
@@ -262,6 +283,10 @@
 
       trussHeight: trussHeight,
       trussDepth: trussDepth,
+      trussWidth: trussWidth,
+      endInset: endInset,
+      centreSpan: centreSpan,
+      tooNarrowToHide: tooNarrowToHide,
       trussMass: trussMass,
       trussLinearMass: trussLinearMass,
       trussSolidity: trussSolidity,
@@ -313,6 +338,65 @@
       ],
       /** And the one that doesn't. */
       wallPart: { name: 'LED wall', mass: wallMass, x: wallX, y: wallCentreHeight }
+    };
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Across the wall
+   * ------------------------------------------------------------------ */
+
+  /**
+   * Where the uprights stand across the width of the wall, and how much wall
+   * each of them carries.
+   *
+   * The end uprights are set in far enough that their outer faces line up with
+   * the ends of the wall, so no truss is visible past it. Their centres are
+   * therefore half an upright width in, and the n centres span `wallWidth -
+   * trussWidth` rather than the full width — which makes every bay slightly
+   * shorter than the naive `wallWidth / (n - 1)`.
+   *
+   * Each upright takes the wall out to the midpoint of the bay either side of
+   * it. The end ones also take the strip that overhangs them out to the end of
+   * the wall, which is that same half an upright width. The shares add back up
+   * to the full width, and with only two uprights they are half the wall each.
+   *
+   * @param {object} L layout
+   * @param {number} n how many uprights
+   */
+  function across(L, n) {
+    n = Math.max(1, Math.round(n));
+    if (n < 2) {
+      return {
+        n: 1,
+        spacing: 0,
+        centreSpan: 0,
+        inset: L.wallWidth / 2,
+        centres: [L.wallWidth / 2],
+        endShare: L.wallWidth,
+        interiorShare: 0,
+        tributary: L.wallWidth
+      };
+    }
+
+    var spacing = L.centreSpan / (n - 1);
+    var centres = [];
+    for (var i = 0; i < n; i += 1) centres.push(L.endInset + i * spacing);
+
+    var endShare = spacing / 2 + L.endInset;
+    var interiorShare = n > 2 ? spacing : 0;
+
+    return {
+      n: n,
+      spacing: spacing,
+      centreSpan: L.centreSpan,
+      inset: L.endInset,
+      centres: centres,
+      endShare: endShare,
+      interiorShare: interiorShare,
+      /* Whichever upright carries the most is the one worth sizing to. That is
+       * an interior one whenever the bays are wider than an upright, which is
+       * every sane arrangement — but not when there are only two. */
+      tributary: Math.max(endShare, interiorShare)
     };
   }
 
@@ -485,7 +569,7 @@
   /**
    * @param {object} input SI throughout: metres, kilograms, m/s.
    *   wallWidth, wallHeight, wallBottom, wallDepth, wallArealMass
-   *   trussHeight, trussDepth, trussLinearMass
+   *   trussHeight, trussDepth, trussWidth, trussLinearMass, trussSolidity
    *   plateFront, plateBack, plateWidth, plateMass, ballastMass, ballastX
    *   windSpeed, forceCoefficient, airDensity, safetyFactor
    *   maxSpacing, maxLoadPerUpright, uprights (override), gravity
@@ -510,13 +594,50 @@
 
     /* --------------------------- how many uprights ------------------- */
 
-    /* Uprights at both ends, so n uprights make n-1 bays. */
-    var bySpacing = L.wallWidth > EPS ? Math.ceil(L.wallWidth / maxSpacing) + 1 : 2;
+    /* Rounded up with the same slack the warnings allow. Taking an upright's
+     * width off the wall's lands on values like 4.800000000000001, and a bare
+     * ceil() would then spend a whole extra upright on the last bit of a float
+     * — on exactly the round figures someone is most likely to type. */
+    var ceilTol = function (x) {
+      return Math.ceil(x - 1e-9);
+    };
 
-    /* An interior upright carries one bay's width of wall. */
-    var byLoad = L.wallMass > EPS && maxLoadPerUpright > EPS
-      ? Math.ceil(L.wallMass / maxLoadPerUpright) + 1
-      : 2;
+    /* Uprights at both ends, so n uprights make n-1 bays — and the bays share
+     * the run between the end centres, not the full width of the wall, because
+     * the end uprights are tucked in behind it. */
+    var bySpacing = L.centreSpan > EPS ? ceilTol(L.centreSpan / maxSpacing) + 1 : 2;
+
+    /* An interior upright carries one bay's width of wall, an end one half a bay
+     * plus the strip overhanging it, and either can be the binding criterion.
+     * Working in kilograms per metre of width keeps this in step with
+     * `across()`, which deals in widths rather than bay counts.
+     *
+     * The end criterion only bites when one upright's own width of wall already
+     * weighs more than the limit. And an end upright can never carry less than
+     * half its own width however many you add, so below that floor no number of
+     * uprights meets the limit — one comparison driving both the count and the
+     * warning that explains it. */
+    var wallPerMetre = L.arealMass * L.wallHeight;
+    var floorLoad = (wallPerMetre * L.trussWidth) / 2;
+    var loadLimitReachable = maxLoadPerUpright > floorLoad + 1e-9;
+
+    var byLoad = 2;
+    if (wallPerMetre > EPS && maxLoadPerUpright > EPS && L.centreSpan > EPS) {
+      /* Two uprights are a case of their own: with no interior one between
+       * them they take half the wall each, so check that before charging one of
+       * them a whole bay. */
+      if (wallPerMetre * (L.wallWidth / 2) <= maxLoadPerUpright + 1e-6) {
+        byLoad = 2;
+      } else {
+        byLoad = ceilTol((L.centreSpan * wallPerMetre) / maxLoadPerUpright) + 1;
+        if (loadLimitReachable) {
+          byLoad = Math.max(
+            byLoad,
+            ceilTol(L.centreSpan / (2 * (maxLoadPerUpright / wallPerMetre) - L.trussWidth)) + 1
+          );
+        }
+      }
+    }
 
     var forwardNeed = uprightsForStability(L, loads, 1, safety);
     var backwardNeed = uprightsForStability(L, loads, -1, safety);
@@ -577,8 +698,9 @@
       return c.moments.ratio < worst.moments.ratio ? c : worst;
     }, cases[0]);
 
-    var spacing = uprights > 1 ? L.wallWidth / (uprights - 1) : L.wallWidth;
-    var tributary = spacing; // an interior upright's share
+    var run = across(L, uprights);
+    var spacing = run.spacing;
+    var tributary = run.tributary; // the share the worst-off upright carries
 
     /* Wind on the cantilevered strip has to be carried back down through the
      * connection at the top of the upright, as bending. This is not part of
@@ -587,7 +709,7 @@
     var cantileverArea = L.wallCantilever * tributary;
     var cantileverWind = pressure * coefficient * cantileverArea;
     var cantileverMoment = cantileverWind * (L.wallCantilever / 2);
-    var wallPerUpright = uprights > 1 ? L.wallMass / (uprights - 1) : L.wallMass;
+    var wallPerUpright = wallPerMetre * tributary;
 
     var totalMass =
       L.wallMass + uprights * (L.trussMass + L.plateMass + L.ballastMass);
@@ -701,6 +823,18 @@
             'contribute — cut them down to the wall, or expect a lot of ballast.'
         );
       }
+      if (L.tooNarrowToHide) {
+        warnings.push(
+          'A single upright is ' + (L.trussWidth * 1000).toFixed(0) + ' mm wide and the wall ' +
+            'is only ' + (L.wallWidth * 1000).toFixed(0) + ' mm — there is no way to keep it ' +
+            'out of sight behind it.'
+        );
+      } else if (spacing + EPS < L.trussWidth) {
+        warnings.push(
+          'At ' + spacing.toFixed(2) + ' m centres the uprights would be closer together ' +
+            'than they are wide — they would be touching.'
+        );
+      }
       if (spacing > maxSpacing + 1e-9) {
         warnings.push(
           'Uprights would sit ' + spacing.toFixed(2) + ' m apart, wider than the ' +
@@ -709,8 +843,13 @@
       }
       if (wallPerUpright > maxLoadPerUpright + 1e-6) {
         warnings.push(
-          'Each interior upright would carry ' + Math.round(wallPerUpright) + ' kg of wall, ' +
-            'over the ' + Math.round(maxLoadPerUpright) + ' kg limit set.'
+          'The worst-off upright would carry ' + Math.round(wallPerUpright) + ' kg of wall, ' +
+            'over the ' + Math.round(maxLoadPerUpright) + ' kg limit set.' +
+            (loadLimitReachable
+              ? ''
+              : ' No number of uprights will fix that: an end one carries at least half ' +
+                'its own width of wall — ' + Math.round(floorLoad) + ' kg — however close ' +
+                'together they get.')
         );
       }
       if (L.plateWidth > EPS && spacing < L.plateWidth) {
@@ -733,7 +872,12 @@
       windSpeed: windSpeed,
       windPressure: pressure,
       windForce: windForce,
-      windForcePerUpright: uprights > 0 ? windForce / uprights : windForce,
+      /* The wall's wind load lands on the uprights the same way its weight
+       * does, so this is the worst-off upright's share of it — not the total
+       * divided by the count, which would read 16% light on the reference wall.
+       * The overturning check is still a global one and does not use this. */
+      windForcePerUpright:
+        L.wallWidth > EPS ? (windForce * tributary) / L.wallWidth : windForce,
       trussForceCoefficient: trussCoefficient,
       cantileverArea: cantileverArea,
       cantileverWind: cantileverWind,
@@ -757,6 +901,31 @@
       constraints: candidates,
       spacing: spacing,
       tributary: tributary,
+      run: run,
+
+      /* What of the structure is still in sight from the front once the ends
+       * of the run are tucked in behind the wall. Sideways is solved by the
+       * inset; up and down are a matter of how the heights are set, and the
+       * baseplates are their own story at floor level. */
+      showing: {
+        above: L.trussExposedAbove,
+        below: L.trussExposedBelow,
+        pastEnds: L.tooNarrowToHide ? (L.trussWidth - L.wallWidth) / 2 : 0,
+        /* Measured from the upright centre, so it stays right in the pinched
+         * case where the inset has had to be clamped to half the wall. */
+        plateEnds: L.wallWidth > EPS ? Math.max(0, L.plateWidth / 2 - L.endInset) : 0,
+        /* And the bit that reaches out past the face of the wall towards you,
+         * which is the part of the plate you actually trip over. */
+        plateToe: Math.max(0, L.plateFront - L.wallFootX),
+        /* How much floor the run wants, which is wider than the wall. */
+        footprint: L.wallWidth > EPS ? L.centreSpan + L.plateWidth : 0,
+        /* Named for what it means: the truss is out of sight. The baseplates
+         * are reported separately rather than folded in here, because they are
+         * at floor level and a different question. */
+        trussHidden:
+          L.trussExposedAbove <= EPS && L.trussExposedBelow <= EPS && !L.tooNarrowToHide
+      },
+
       maxSpacing: maxSpacing,
       maxLoadPerUpright: maxLoadPerUpright,
 
@@ -766,9 +935,15 @@
       /* Whether any number of uprights can hold it — distinct from needing a
        * lot of them. False when each upright brings more wind than it resists. */
       stabilityAchievable: isFinite(byStability),
+      /* The plate check is the usual one to fail, but it is switched off when no
+       * plate width has been given, so the truss's own width has to be checked
+       * too — otherwise two uprights standing in the same place come back as a
+       * perfectly good scheme. */
       buildable:
         isFinite(byStability) &&
-        !(L.plateWidth > EPS && spacing + EPS < L.plateWidth),
+        !L.tooNarrowToHide &&
+        !(L.plateWidth > EPS && spacing + EPS < L.plateWidth) &&
+        !(L.trussWidth > EPS && spacing + EPS < L.trussWidth),
 
       cases: cases,
       byCase: cases.reduce(function (acc, c) {
@@ -807,6 +982,7 @@
     asLoads: asLoads,
     beaufort: beaufort,
     layout: layout,
+    across: across,
     moments: moments,
     momentSplit: momentSplit,
     uprightsForStability: uprightsForStability,

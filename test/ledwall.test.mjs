@@ -174,15 +174,17 @@ test('the reference wall needs six uprights, and stability is what decides it', 
   assert.equal(r.governingConstraint.id, 'stability');
 
   // and the other two constraints are satisfied well before that
-  assert.equal(r.constraints.find((c) => c.id === 'spacing').n, 5); // ceil(10/3)+1
-  assert.equal(r.constraints.find((c) => c.id === 'load').n, 5); // ceil(2000/500)+1
+  // both worked over the 9.7 m run between the end centres, not the full width
+  assert.equal(r.constraints.find((c) => c.id === 'spacing').n, 5); // ceil(9.7/3)+1
+  assert.equal(r.constraints.find((c) => c.id === 'load').n, 5); // ceil(1940/500)+1
 });
 
-test('six uprights make five bays at two metres', () => {
+test('six uprights make five bays, over the run between the end centres', () => {
   const r = W.solve(baseline);
-  near(r.spacing, 2); // 10 m over 5 bays
-  near(r.wallMassPerUpright, 400); // 2000 kg over 5 bays
-  near(r.loadPerUpright, 400 + 39);
+  // the end uprights are set 150 mm in, so the centres span 9.7 m, not 10
+  near(r.spacing, 1.94); // 9.7 m over 5 bays
+  near(r.wallMassPerUpright, 388); // 1.94 m of wall at 200 kg/m of width
+  near(r.loadPerUpright, 388 + 39);
   near(r.totalMass, 2000 + 6 * (39 + 60 + 300));
   near(r.ballastTotal, 1800);
 });
@@ -197,7 +199,7 @@ test('the forward case is the one that governs', () => {
 
 test('wider spacing limits force more uprights', () => {
   const tight = W.solve({ ...baseline, maxSpacing: 1.2 });
-  // ceil(10/1.2)+1 = 10
+  // ceil(9.7/1.2)+1 = 10
   assert.equal(tight.constraints.find((c) => c.id === 'spacing').n, 10);
   assert.equal(tight.uprights, 10);
   assert.equal(tight.governingConstraint.id, 'spacing');
@@ -205,9 +207,9 @@ test('wider spacing limits force more uprights', () => {
 
 test('a per-upright weight limit can be what decides it', () => {
   const r = W.solve({ ...baseline, maxLoadPerUpright: 150, ballastMass: 600 });
-  // ceil(2000/150)+1 = 15
-  assert.equal(r.constraints.find((c) => c.id === 'load').n, 15);
-  assert.equal(r.uprights, 15);
+  // 9.7 m of run at 200 kg per metre of width: ceil(1940/150)+1 = 14
+  assert.equal(r.constraints.find((c) => c.id === 'load').n, 14);
+  assert.equal(r.uprights, 14);
   assert.equal(r.governingConstraint.id, 'load');
   assert.ok(r.wallMassPerUpright <= 150 + 1e-9);
 });
@@ -442,9 +444,10 @@ test('the cantilever bending is reported, and grows with the square of it', () =
   // force goes with the area, and the arm with half the height, so 4x
   near(at2.cantileverMoment / at1.cantileverMoment, 4, 1e-9);
 
-  // and by hand: q x Cf x (cantilever x spacing) x cantilever/2
+  // and by hand: q x Cf x (cantilever x bay) x cantilever/2
   const q = W.windPressure(11, 1.225);
-  near(at1.cantileverMoment, q * 1.3 * (1 * 2) * 0.5, 1e-6);
+  near(at1.tributary, 1.94);
+  near(at1.cantileverMoment, q * 1.3 * (1 * 1.94) * 0.5, 1e-6);
 });
 
 test('a thin sliver of overlap is called out', () => {
@@ -847,4 +850,299 @@ test('a bare number still means the wall load alone', () => {
     W.moments(L, 6, { wallForce: 1000, trussForcePerUpright: 10 }, 1).trussWindMoment,
     6 * 10 * 3
   );
+});
+
+/* ------------- keeping the truss out of sight behind the wall ----------- */
+
+test('the width across the wall falls back to the depth, because box truss is square', () => {
+  near(W.layout(baseline).trussWidth, 0.3);
+  near(W.layout({ ...baseline, trussWidth: 0.45 }).trussWidth, 0.45);
+  // a ladder truss is not square: deep front to back, thin across
+  near(W.layout({ ...baseline, trussDepth: 0.3, trussWidth: 0.05 }).trussWidth, 0.05);
+});
+
+test('the end uprights are set in so their outer faces line up with the wall', () => {
+  const L = W.layout(baseline);
+  near(L.endInset, 0.15); // half of a 300 mm upright
+  near(L.centreSpan, 9.7); // 10 m less one upright width
+
+  const run = W.across(L, 6);
+  near(run.centres[0], 0.15);
+  near(run.centres[5], 9.85);
+  // which is exactly what puts the outer faces on the ends of the wall
+  near(run.centres[0] - L.trussWidth / 2, 0);
+  near(run.centres[5] + L.trussWidth / 2, L.wallWidth);
+});
+
+test('the bays are even, and shorter than the naive full-width figure', () => {
+  const run = W.across(W.layout(baseline), 6);
+  near(run.spacing, 1.94); // 9.7 / 5, not 10 / 5
+  for (let i = 1; i < run.centres.length; i += 1) {
+    near(run.centres[i] - run.centres[i - 1], 1.94, 1e-9);
+  }
+});
+
+test('the shares of wall add back up to the whole width', () => {
+  const L = W.layout(baseline);
+  for (const n of [2, 3, 6, 11]) {
+    const run = W.across(L, n);
+    const total = 2 * run.endShare + (n - 2) * run.interiorShare;
+    near(total, L.wallWidth, 1e-9, `${n} uprights`);
+  }
+});
+
+test('an end upright takes half a bay plus the strip overhanging it', () => {
+  const run = W.across(W.layout(baseline), 6);
+  near(run.endShare, 1.94 / 2 + 0.15);
+  near(run.interiorShare, 1.94);
+  // an interior one carries more, so it is the one worth sizing to
+  assert.ok(run.interiorShare > run.endShare);
+  near(run.tributary, run.interiorShare);
+});
+
+test('with only two uprights there is no interior one, so they take half each', () => {
+  const L = W.layout(baseline);
+  const run = W.across(L, 2);
+  near(run.spacing, 9.7);
+  near(run.endShare, 5); // 9.7/2 + 0.15
+  near(run.interiorShare, 0);
+  near(run.tributary, 5); // half the wall, not the whole of it
+  near(W.solve({ ...baseline, uprights: 2 }).wallMassPerUpright, 1000);
+});
+
+test('tucking the ends in never asks for more uprights, because the bays shorten', () => {
+  const r = W.solve(baseline);
+  const naive = W.solve({ ...baseline, trussWidth: 1e-9 }); // centres out on the ends
+  assert.ok(r.spacing < naive.spacing, `${r.spacing} vs ${naive.spacing}`);
+  assert.ok(r.tributary <= naive.tributary + 1e-9);
+  for (const id of ['spacing', 'load']) {
+    const mine = r.constraints.find((c) => c.id === id).n;
+    const theirs = naive.constraints.find((c) => c.id === id).n;
+    assert.ok(mine <= theirs, `${id}: ${mine} vs ${theirs}`);
+  }
+});
+
+test('the inset moves nothing front to back, so overturning is untouched', () => {
+  /* Held so the wall covers the whole upright, which takes the truss's own wind
+   * area out of it — that genuinely does grow with the width, and it would
+   * otherwise confound what this is testing. */
+  const covered = { ...baseline, wallBottom: 0, trussHeight: 5, plateFront: 0, uprights: 6 };
+  const wide = W.solve({ ...covered, trussWidth: 0.6 });
+  const thin = W.solve({ ...covered, trussWidth: 0.05 });
+  near(wide.layout.trussWindAreaPerUpright, 0);
+  near(thin.layout.trussWindAreaPerUpright, 0);
+
+  // the wall's weight and its wind act in the same places either way
+  near(wide.governingCase.moments.ratio, thin.governingCase.moments.ratio, 1e-9);
+  near(wide.limitingWindSpeed, thin.limitingWindSpeed, 1e-9);
+  near(wide.ballastNeededPerUpright, thin.ballastNeededPerUpright, 1e-6);
+  // what does change is how much wall each upright is holding up
+  assert.ok(wide.tributary < thin.tributary);
+});
+
+test('the wind sees the face across the wall, not the depth along it', () => {
+  // 1 m of upright out in the wind at 0.3 solidity, on the reference wall
+  near(W.layout(baseline).trussWindAreaPerUpright, 1 * 0.3 * 0.3);
+
+  // a ladder truss: deep front to back, thin across. Only the width counts,
+  // the same way the wall's own area is its width by its height.
+  const ladder = W.layout({ ...baseline, trussDepth: 0.5, trussWidth: 0.05 });
+  near(ladder.trussWindAreaPerUpright, 1 * 0.05 * 0.3);
+
+  // and a wider upright really is more sail, so it costs stability
+  const wide = W.solve({ ...baseline, trussWidth: 1, uprights: 6 });
+  const thin = W.solve({ ...baseline, trussWidth: 0.05, uprights: 6 });
+  assert.ok(wide.trussWindPerUpright > thin.trussWindPerUpright * 15);
+  assert.ok(wide.limitingWindSpeed < thin.limitingWindSpeed);
+});
+
+test('the sizing constraints agree with the spacing that gets reported', () => {
+  // the closed forms invert across(), so check they land on the same number
+  for (const maxSpacing of [1, 1.5, 2.2, 3, 4.9]) {
+    const r = W.solve({ ...baseline, maxSpacing, uprights: undefined });
+    const n = r.constraints.find((c) => c.id === 'spacing').n;
+    const run = W.across(r.layout, n);
+    assert.ok(run.spacing <= maxSpacing + 1e-9, `${maxSpacing}: got ${run.spacing} at n=${n}`);
+    const fewer = W.across(r.layout, n - 1);
+    assert.ok(fewer.spacing > maxSpacing, `${maxSpacing}: n=${n} is not the fewest`);
+  }
+});
+
+test('the load constraint also lands on the fewest that will do', () => {
+  for (const limit of [150, 250, 400, 500]) {
+    const r = W.solve({ ...baseline, maxLoadPerUpright: limit });
+    const n = r.constraints.find((c) => c.id === 'load').n;
+    const perMetre = r.layout.arealMass * r.layout.wallHeight;
+    assert.ok(perMetre * W.across(r.layout, n).tributary <= limit + 1e-9, `${limit} at n=${n}`);
+    assert.ok(
+      perMetre * W.across(r.layout, n - 1).tributary > limit,
+      `${limit}: n=${n} is not the fewest`
+    );
+  }
+});
+
+test('a wall narrower than one upright cannot hide it', () => {
+  const r = W.solve({ ...baseline, wallWidth: 0.2, trussWidth: 0.3 });
+  assert.equal(r.layout.tooNarrowToHide, true);
+  near(r.layout.centreSpan, 0);
+  assert.match(r.warnings.join(' '), /no way to keep it out of sight/);
+  assert.equal(r.showing.trussHidden, false);
+  near(r.showing.pastEnds, 0.05); // 50 mm each side
+});
+
+test('uprights closer together than they are wide is called out', () => {
+  const r = W.solve({ ...baseline, trussWidth: 1.2, uprights: 12 });
+  assert.ok(r.spacing < r.layout.trussWidth);
+  assert.match(r.warnings.join(' '), /closer together than they are wide/);
+});
+
+test('the baseplates still stick out past the wall even when the truss does not', () => {
+  const r = W.solve(baseline); // 600 mm plates behind a 300 mm upright
+  near(r.showing.plateEnds, 0.15);
+  // reported, but not a warning: they are at floor level and normally dressed out
+  assert.doesNotMatch(r.warnings.join(' '), /baseplate/);
+
+  near(W.solve({ ...baseline, plateWidth: 0.3 }).showing.plateEnds, 0);
+  near(W.solve({ ...baseline, plateWidth: 0.2 }).showing.plateEnds, 0); // narrower, so nothing
+});
+
+test('what still shows from the front is reported top and bottom too', () => {
+  const r = W.solve(baseline); // 6 m uprights behind a wall from 0.5 m to 5.5 m
+  near(r.showing.above, 0.5);
+  near(r.showing.below, 0.5);
+  assert.equal(r.showing.trussHidden, false);
+
+  // bring the wall down to the ground and the uprights to the top of it
+  const hidden = W.solve({ ...baseline, wallBottom: 0, trussHeight: 5, plateFront: 0 });
+  near(hidden.showing.above, 0);
+  near(hidden.showing.below, 0);
+  near(hidden.showing.pastEnds, 0);
+  assert.equal(hidden.showing.trussHidden, true);
+  // the truss, note — the baseplates are a separate question at floor level
+  assert.ok(hidden.showing.plateEnds > 0);
+});
+
+test('the spacing count does not spend an upright on a rounding error', () => {
+  /* 5.4 m less a 600 mm upright is 4.800000000000001 in floating point, which
+   * divides into 1.2 m bays four times and a hair. Four bays is right. */
+  const r = W.solve({ ...baseline, wallWidth: 5.4, trussDepth: 0.6, maxSpacing: 1.2 });
+  assert.equal(r.constraints.find((c) => c.id === 'spacing').n, 5);
+  near(W.across(r.layout, 5).spacing, 1.2, 1e-9);
+});
+
+test('two uprights are not charged for a bay that is not there', () => {
+  // each takes half of 2000 kg, which is exactly the limit, so two will do
+  const r = W.solve({ ...baseline, maxLoadPerUpright: 1000 });
+  assert.equal(r.constraints.find((c) => c.id === 'load').n, 2);
+  near(W.across(r.layout, 2).tributary * 200, 1000);
+
+  // a hair under and it takes three
+  const tighter = W.solve({ ...baseline, maxLoadPerUpright: 999 });
+  assert.equal(tighter.constraints.find((c) => c.id === 'load').n, 3);
+});
+
+test('the end share is what sizes the run when uprights are wide and limits low', () => {
+  /* 12 m x 8 m at 40 kg/m² on 500 mm uprights, 150 kg each: the bays end up
+   * shorter than an upright is wide, so the end ones govern. */
+  const r = W.solve({
+    ...baseline,
+    wallWidth: 12,
+    wallHeight: 8,
+    trussDepth: 0.5,
+    maxLoadPerUpright: 150,
+    plateWidth: 0
+  });
+  const n = r.constraints.find((c) => c.id === 'load').n;
+  assert.equal(n, 28);
+  const perMetre = 8 * 40;
+  assert.ok(perMetre * W.across(r.layout, n).tributary <= 150 + 1e-9);
+  assert.ok(perMetre * W.across(r.layout, n - 1).tributary > 150);
+  // and the end upright really is the worst-off one here
+  const run = W.across(r.layout, n);
+  assert.ok(run.endShare > run.interiorShare);
+});
+
+test('a load limit below half an upright width of wall cannot be met at all', () => {
+  // 300 mm of upright under 200 kg/m of wall width is 30 kg an end one cannot shed
+  const r = W.solve({ ...baseline, maxLoadPerUpright: 25, ballastMass: 2000 });
+  assert.match(r.warnings.join(' '), /No number of uprights will fix that/);
+  assert.ok(r.tributary > 0.15); // floors at half an upright width, never zero
+});
+
+test('uprights standing in the same place are not called buildable', () => {
+  const pinched = W.solve({ ...baseline, wallWidth: 0.25, trussDepth: 0.3, plateWidth: 0 });
+  assert.equal(pinched.layout.tooNarrowToHide, true);
+  assert.equal(pinched.buildable, false);
+  // and the plate figure is still right where the inset had to be clamped
+  near(pinched.showing.plateEnds, 0);
+  near(W.solve({ ...baseline, wallWidth: 0.25, trussDepth: 0.3, plateWidth: 0.6 })
+    .showing.plateEnds, 0.3 - 0.125);
+});
+
+test('the wall load on one upright follows its share, not the count', () => {
+  const r = W.solve(baseline);
+  // 4817 N over the wall, and the worst upright carries 1.94 m of the 10 m
+  near(r.windForcePerUpright, (r.windForce * 1.94) / 10, 1e-6);
+  assert.ok(r.windForcePerUpright > r.windForce / r.uprights); // not the average
+});
+
+test('both sizing inversions are the fewest that pass, swept over the range', () => {
+  /* The closed forms invert across() by algebra, so sweep them against what
+   * across() actually reports and check they land on the boundary every time. */
+  for (const wallWidth of [3, 5.4, 7, 10, 12.5]) {
+    for (const trussWidth of [0.05, 0.3, 0.6, 1]) {
+      for (const maxSpacing of [0.8, 1.2, 2, 3]) {
+        for (const maxLoadPerUpright of [150, 400, 1000]) {
+          const r = W.solve({
+            ...baseline, wallWidth, trussWidth, maxSpacing, maxLoadPerUpright, plateWidth: 0
+          });
+          const L = r.layout;
+          const perMetre = L.arealMass * L.wallHeight;
+          const where = `W=${wallWidth} tw=${trussWidth} s<=${maxSpacing} kg<=${maxLoadPerUpright}`;
+
+          const ns = r.constraints.find((c) => c.id === 'spacing').n;
+          assert.ok(W.across(L, ns).spacing <= maxSpacing + 1e-9, `spacing ${where}`);
+          if (ns > 2) {
+            assert.ok(W.across(L, ns - 1).spacing > maxSpacing + 1e-9, `spacing not least ${where}`);
+          }
+
+          const nl = r.constraints.find((c) => c.id === 'load').n;
+          const load = (k) => perMetre * W.across(L, k).tributary;
+          // unless the limit is below the floor an end upright cannot get under
+          if (2 * maxLoadPerUpright > perMetre * L.trussWidth) {
+            assert.ok(load(nl) <= maxLoadPerUpright + 1e-6, `load ${where} at n=${nl}`);
+            if (nl > 2) {
+              assert.ok(load(nl - 1) > maxLoadPerUpright + 1e-6, `load not least ${where}`);
+            }
+          }
+        }
+      }
+    }
+  }
+});
+
+test('the load limit is called impossible at the boundary too, not just past it', () => {
+  const perMetre = 200; // 5 m tall at 40 kg/m²
+  const floor = (perMetre * 0.3) / 2; // an end upright can never shed this: 30 kg
+
+  // right on the floor, adding uprights still never gets under it
+  const at = W.solve({ ...baseline, maxLoadPerUpright: floor, ballastMass: 2000 });
+  assert.match(at.warnings.join(' '), /No number of uprights will fix that/);
+  assert.match(at.warnings.join(' '), /30 kg/);
+
+  // a hair above and it becomes a question of how many, not whether
+  const above = W.solve({ ...baseline, maxLoadPerUpright: floor * 1.5, ballastMass: 2000 });
+  assert.doesNotMatch(above.warnings.join(' '), /No number of uprights/);
+  const n = above.constraints.find((c) => c.id === 'load').n;
+  assert.ok(perMetre * W.across(above.layout, n).tributary <= floor * 1.5 + 1e-6);
+});
+
+test('the plate reaching out in front of the wall is reported as well', () => {
+  const r = W.solve(baseline);
+  // 500 mm of reach against a wall face at 150 + 120 = 270 mm
+  near(r.showing.plateToe, 0.5 - 0.27);
+  near(r.showing.footprint, 9.7 + 0.6); // wider than the wall on the floor
+
+  // pull the plate back inside the wall's own footing and the toe goes
+  near(W.solve({ ...baseline, plateFront: 0.2 }).showing.plateToe, 0);
 });

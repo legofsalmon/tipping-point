@@ -417,6 +417,15 @@
             </div>
 
             <div class="field">
+              <label for="trussWidth">Width, across the wall</label>
+              <div class="input-row">
+                <input id="trussWidth" type="number" inputmode="decimal" step="any" min="0" />
+                <select id="trussWidth-unit" class="unit" data-units="length" aria-label="Truss width unit"></select>
+              </div>
+              <p class="hint" id="truss-width-hint"></p>
+            </div>
+
+            <div class="field">
               <label for="trussSolidity">How solid the truss is</label>
               <div class="input-row">
                 <input id="trussSolidity" type="number" inputmode="decimal" step="0.05" min="0.01" max="1" />
@@ -738,9 +747,24 @@
               </li>
               <li>
                 The whole run is treated as one rigid body tipping about the line of the
-                baseplate edges, with the load shared evenly between uprights. That is the
-                global check. Individual bases still want checking for uplift, and the end
-                bays carry less than the middle ones.
+                baseplate edges, with the overturning shared evenly between uprights. That is
+                the global check, and individual bases still want checking for uplift.
+              </li>
+              <li>
+                The uprights are set out so that <em>none of the truss shows past the ends of
+                the wall</em>: the outer face of each end upright lines up with the end of the
+                wall, which puts its centre half an upright width in. So the bays share the
+                width less one upright, not the full width — the spacing figure is smaller
+                than the width divided by the bays for that reason. Each upright is
+                then taken to carry the wall out to the middle of the bay either side of it,
+                and the end ones also carry the strip that overhangs them. Each bay is taken
+                as simply supported; a wall frame stiff enough to act continuously over the
+                supports puts 10–25% more into the interior uprights than that, and this does
+                not account for it. What the inset does <em>not</em> change is overturning: it
+                moves mass sideways along the tipping edge, not forward or back. And it hides
+                the truss from dead ahead only — the truss body still sits the best part of
+                half a metre behind the face of the wall, so it comes back into view as you
+                walk round.
               </li>
               <li>
                 Where the baseplate runs under the wall, the bottom of the wall cannot sit
