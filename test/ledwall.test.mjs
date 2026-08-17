@@ -488,7 +488,15 @@ test('gravity is applied throughout', () => {
   const moon = W.solve({ ...baseline, gravity: 1.62 });
   // wind does not care about gravity, but everything holding it down does
   near(earth.windForce, moon.windForce, 1e-9);
-  assert.ok(moon.uprights > earth.uprights);
+
+  /* Six times less to hold it down wants far more legs than fit behind a 10 m
+   * wall, so the honest answer is that no number works — and it says how far off
+   * it is rather than quoting a count nobody could build. */
+  const wanted = moon.constraints.find((c) => c.id === 'stability').wanted;
+  assert.ok(wanted > earth.uprights, `moon wants ${wanted}`);
+  assert.ok(wanted > moon.uprightsThatFit);
+  assert.equal(moon.countAchievable, false);
+  assert.equal(moon.buildable, false);
 });
 
 /* --------------------------- a whole-job check ------------------------- */
@@ -548,10 +556,18 @@ test('a layout whose baseplates would overlap is not called buildable', () => {
   const fine = W.solve(baseline);
   assert.equal(fine.buildable, true);
 
+  /* Nothing holding it down and almost no reach in front: it wants 69 uprights
+   * where 33 fit, so there is no count to quote. */
   const crammed = W.solve({ ...baseline, ballastMass: 0, plateFront: 0.15 });
-  assert.ok(crammed.uprights > 20, `got ${crammed.uprights}`);
+  assert.ok(crammed.constraints.find((c) => c.id === 'stability').wanted > 20);
+  assert.equal(crammed.countAchievable, false);
   assert.equal(crammed.buildable, false);
-  assert.match(crammed.warnings.join(' '), /overlap/);
+
+  // a count that does fit but crowds the plates is still called out as overlap
+  const tight = W.solve({ ...baseline, ballastMass: 0 });
+  assert.equal(tight.uprights, 28);
+  assert.equal(tight.buildable, false);
+  assert.match(tight.warnings.join(' '), /overlap/);
 });
 
 test('a geometry no number of uprights can fix is not buildable either', () => {
@@ -1041,32 +1057,46 @@ test('two uprights are not charged for a bay that is not there', () => {
   assert.equal(tighter.constraints.find((c) => c.id === 'load').n, 3);
 });
 
-test('the end share is what sizes the run when uprights are wide and limits low', () => {
-  /* 12 m x 8 m at 40 kg/m² on 500 mm uprights, 150 kg each: the bays end up
-   * shorter than an upright is wide, so the end ones govern. */
-  const r = W.solve({
-    ...baseline,
-    wallWidth: 12,
-    wallHeight: 8,
-    trussDepth: 0.5,
-    maxLoadPerUpright: 150,
-    plateWidth: 0
-  });
-  const n = r.constraints.find((c) => c.id === 'load').n;
-  assert.equal(n, 28);
-  const perMetre = 8 * 40;
-  assert.ok(perMetre * W.across(r.layout, n).tributary <= 150 + 1e-9);
-  assert.ok(perMetre * W.across(r.layout, n - 1).tributary > 150);
-  // and the end upright really is the worst-off one here
-  const run = W.across(r.layout, n);
-  assert.ok(run.endShare > run.interiorShare);
+test('an end upright can only be the worst-off one once they stop fitting', () => {
+  /* endShare beats interiorShare exactly when the bays are narrower than an
+   * upright is wide, and that needs n x trussWidth past the width of the wall —
+   * which is to say only once they no longer fit behind it. So on any buildable
+   * run the interior upright governs, and that is what lets the load count be
+   * solved for the interior share alone. */
+  const L = W.layout({ ...baseline, trussDepth: 0.5 });
+  const fits = Math.floor(L.wallWidth / L.trussWidth); // 20
+
+  for (let n = 3; n <= fits; n += 1) {
+    const run = W.across(L, n);
+    assert.ok(run.interiorShare >= run.endShare, `n=${n}, inside what fits`);
+    near(run.tributary, run.interiorShare, 1e-12);
+  }
+  // and only past it does the end one take over
+  const over = W.across(L, fits + 2);
+  assert.ok(over.endShare > over.interiorShare);
+  near(over.tributary, over.endShare);
 });
 
-test('a load limit below half an upright width of wall cannot be met at all', () => {
-  // 300 mm of upright under 200 kg/m of wall width is 30 kg an end one cannot shed
+test('a load limit no fitting count can meet is reported as impossible', () => {
+  // 25 kg an upright against 200 kg for every metre of wall width
   const r = W.solve({ ...baseline, maxLoadPerUpright: 25, ballastMass: 2000 });
-  assert.match(r.warnings.join(' '), /No number of uprights will fix that/);
-  assert.ok(r.tributary > 0.15); // floors at half an upright width, never zero
+  assert.equal(r.countAchievable, false);
+  assert.equal(r.blockedBy.id, 'load');
+  assert.ok(r.blockedBy.wanted > r.uprightsThatFit);
+  assert.equal(r.uprightsThatFit, 33); // 10 m of wall, 300 mm uprights
+  assert.equal(r.buildable, false);
+});
+
+test('the count never runs away, however close the limit is to impossible', () => {
+  /* An end upright's share tends to half its own width rather than to zero, so a
+   * limit near that floor used to ask for billions of uprights and take the
+   * setting-out array down with it. */
+  for (const maxLoadPerUpright of [31, 30.05, 30.0000001, 30, 29.9, 1e-6]) {
+    const r = W.solve({ ...baseline, maxLoadPerUpright, ballastMass: 2000 });
+    assert.ok(Number.isFinite(r.uprights), `${maxLoadPerUpright}: ${r.uprights}`);
+    assert.ok(r.uprights <= r.uprightsThatFit, `${maxLoadPerUpright}: ${r.uprights}`);
+    assert.equal(r.run.centres.length, r.uprights);
+  }
 });
 
 test('uprights standing in the same place are not called buildable', () => {
@@ -1101,40 +1131,46 @@ test('both sizing inversions are the fewest that pass, swept over the range', ()
           const where = `W=${wallWidth} tw=${trussWidth} s<=${maxSpacing} kg<=${maxLoadPerUpright}`;
 
           const ns = r.constraints.find((c) => c.id === 'spacing').n;
-          assert.ok(W.across(L, ns).spacing <= maxSpacing + 1e-9, `spacing ${where}`);
-          if (ns > 2) {
-            assert.ok(W.across(L, ns - 1).spacing > maxSpacing + 1e-9, `spacing not least ${where}`);
+          if (Number.isFinite(ns)) {
+            assert.ok(W.across(L, ns).spacing <= maxSpacing + 1e-9, `spacing ${where}`);
+            if (ns > 2) {
+              assert.ok(
+                W.across(L, ns - 1).spacing > maxSpacing + 1e-9,
+                `spacing not least ${where}`
+              );
+            }
           }
 
           const nl = r.constraints.find((c) => c.id === 'load').n;
           const load = (k) => perMetre * W.across(L, k).tributary;
-          // unless the limit is below the floor an end upright cannot get under
-          if (2 * maxLoadPerUpright > perMetre * L.trussWidth) {
+          if (Number.isFinite(nl)) {
             assert.ok(load(nl) <= maxLoadPerUpright + 1e-6, `load ${where} at n=${nl}`);
             if (nl > 2) {
               assert.ok(load(nl - 1) > maxLoadPerUpright + 1e-6, `load not least ${where}`);
             }
           }
+
+          // and whatever the answer is, it fits behind the wall and is drawable
+          assert.ok(r.uprights <= r.uprightsThatFit, `fits ${where}`);
+          assert.equal(r.run.centres.length, r.uprights, `centres ${where}`);
         }
       }
     }
   }
 });
 
-test('the load limit is called impossible at the boundary too, not just past it', () => {
-  const perMetre = 200; // 5 m tall at 40 kg/m²
-  const floor = (perMetre * 0.3) / 2; // an end upright can never shed this: 30 kg
+test('the boundary between "how many" and "no number works" is where they stop fitting', () => {
+  /* 33 uprights fit behind a 10 m wall at 300 mm each, and 33 of them make 32
+   * bays over the 9.7 m run — so the lightest limit that can be met is the one
+   * that lets a bay carry 9.7/32 m of wall: 200 x 0.303 = 60.6 kg. */
+  const achievable = W.solve({ ...baseline, maxLoadPerUpright: 60.625, ballastMass: 4000 });
+  assert.equal(achievable.constraints.find((c) => c.id === 'load').n, 33);
+  assert.equal(achievable.uprightsThatFit, 33);
 
-  // right on the floor, adding uprights still never gets under it
-  const at = W.solve({ ...baseline, maxLoadPerUpright: floor, ballastMass: 2000 });
-  assert.match(at.warnings.join(' '), /No number of uprights will fix that/);
-  assert.match(at.warnings.join(' '), /30 kg/);
-
-  // a hair above and it becomes a question of how many, not whether
-  const above = W.solve({ ...baseline, maxLoadPerUpright: floor * 1.5, ballastMass: 2000 });
-  assert.doesNotMatch(above.warnings.join(' '), /No number of uprights/);
-  const n = above.constraints.find((c) => c.id === 'load').n;
-  assert.ok(perMetre * W.across(above.layout, n).tributary <= floor * 1.5 + 1e-6);
+  const not = W.solve({ ...baseline, maxLoadPerUpright: 60, ballastMass: 4000 });
+  assert.equal(not.countAchievable, false);
+  assert.equal(not.blockedBy.id, 'load');
+  assert.equal(not.blockedBy.wanted, 34); // one more than fits
 });
 
 test('the plate reaching out in front of the wall is reported as well', () => {
@@ -1145,4 +1181,43 @@ test('the plate reaching out in front of the wall is reported as well', () => {
 
   // pull the plate back inside the wall's own footing and the toe goes
   near(W.solve({ ...baseline, plateFront: 0.2 }).showing.plateToe, 0);
+});
+
+test('a wall no wider than two uprights gets one, not a fictional pair', () => {
+  /* Two 300 mm uprights cannot stand behind a 350 mm wall, and reporting them
+   * at 50 mm centres — as passing — is worse than reporting the one. */
+  const r = W.solve({ ...baseline, wallWidth: 0.35 });
+  assert.equal(r.uprightsThatFit, 1);
+  assert.equal(r.uprights, 1);
+  assert.equal(r.countAchievable, true);
+  assert.equal(r.buildable, true);
+  near(r.spacing, 0);
+  assert.equal(r.run.centres.length, 1);
+  near(r.run.centres[0], 0.175); // middle of the wall
+  near(r.wallMassPerUpright, 70); // the lot: 0.35 x 5 x 40
+
+  // no bay to be too wide, and nothing to be touching
+  assert.doesNotMatch(r.warnings.join(' '), /touching|apart|overlap/);
+
+  // but a single upright that cannot carry the wall is still impossible
+  const heavy = W.solve({ ...baseline, wallWidth: 0.35, wallHeight: 20, wallArealMass: 200 });
+  assert.equal(heavy.countAchievable, false);
+  assert.equal(heavy.blockedBy.id, 'load');
+});
+
+test('a spacing limit narrower than the truss is named as the contradiction it is', () => {
+  const r = W.solve({ ...baseline, trussDepth: 0.6, maxSpacing: 0.5 });
+  assert.match(r.warnings.join(' '), /narrower than the 600 mm uprights themselves/);
+  assert.equal(r.countAchievable, false);
+  assert.equal(r.blockedBy.id, 'spacing');
+});
+
+test('across() clamps rubbish rather than throwing', () => {
+  const L = W.layout(baseline);
+  for (const n of [NaN, undefined, null, -3, 0, Infinity, 'six']) {
+    const run = W.across(L, n);
+    assert.ok(Array.isArray(run.centres) && run.centres.length >= 1, `n=${n}`);
+    assert.ok(Number.isFinite(run.tributary), `n=${n}`);
+  }
+  near(W.across(L, 6.4).spacing, W.across(L, 6).spacing); // rounds
 });

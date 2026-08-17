@@ -364,7 +364,8 @@
    * @param {number} n how many uprights
    */
   function across(L, n) {
-    n = Math.max(1, Math.round(n));
+    n = Math.round(Number(n));
+    if (!isFinite(n) || n < 1) n = 1;
     if (n < 2) {
       return {
         n: 1,
@@ -612,51 +613,96 @@
      * Working in kilograms per metre of width keeps this in step with
      * `across()`, which deals in widths rather than bay counts.
      *
-     * The end criterion only bites when one upright's own width of wall already
-     * weighs more than the limit. And an end upright can never carry less than
-     * half its own width however many you add, so below that floor no number of
-     * uprights meets the limit — one comparison driving both the count and the
-     * warning that explains it. */
+     * Only the interior criterion needs solving, and it is worth saying why. An
+     * end upright carries more than an interior one exactly when the bays are
+     * narrower than an upright is wide, and that happens only once n × trussWidth
+     * exceeds the width of the wall — which is to say only when the uprights no
+     * longer fit behind it. The ceiling below catches that case first, so the end
+     * share can never be the binding criterion on a run that is buildable at
+     * all. */
     var wallPerMetre = L.arealMass * L.wallHeight;
-    var floorLoad = (wallPerMetre * L.trussWidth) / 2;
-    var loadLimitReachable = maxLoadPerUpright > floorLoad + 1e-9;
-
     var byLoad = 2;
     if (wallPerMetre > EPS && maxLoadPerUpright > EPS && L.centreSpan > EPS) {
       /* Two uprights are a case of their own: with no interior one between
        * them they take half the wall each, so check that before charging one of
        * them a whole bay. */
-      if (wallPerMetre * (L.wallWidth / 2) <= maxLoadPerUpright + 1e-6) {
-        byLoad = 2;
-      } else {
-        byLoad = ceilTol((L.centreSpan * wallPerMetre) / maxLoadPerUpright) + 1;
-        if (loadLimitReachable) {
-          byLoad = Math.max(
-            byLoad,
-            ceilTol(L.centreSpan / (2 * (maxLoadPerUpright / wallPerMetre) - L.trussWidth)) + 1
-          );
-        }
-      }
+      byLoad = wallPerMetre * (L.wallWidth / 2) <= maxLoadPerUpright + 1e-6
+        ? 2
+        : ceilTol((L.centreSpan * wallPerMetre) / maxLoadPerUpright) + 1;
+    }
+
+    /* A wall no wider than two uprights is a case of its own: there is no run
+     * and no bay to be too wide, just the single upright carrying the lot. Both
+     * criteria above assume at least a pair, so they would otherwise ask for two
+     * where two cannot stand. */
+    if (L.trussWidth > EPS && L.wallWidth > EPS && L.wallWidth < 2 * L.trussWidth) {
+      bySpacing = 1;
+      byLoad = L.wallMass <= maxLoadPerUpright + 1e-6 ? 1 : Infinity;
     }
 
     var forwardNeed = uprightsForStability(L, loads, 1, safety);
     var backwardNeed = uprightsForStability(L, loads, -1, safety);
     var byStability = Math.max(forwardNeed, backwardNeed);
 
-    var candidates = [
-      { id: 'spacing', label: 'how far apart the uprights can be', n: bySpacing },
-      { id: 'load', label: 'weight of wall each upright carries', n: byLoad },
-      { id: 'stability', label: 'staying upright in the wind', n: byStability }
-    ];
-    var minimum = Math.max(2, bySpacing, byLoad, isFinite(byStability) ? byStability : 2);
+    /* Each of those three is a lower bound on the count. This is the upper
+     * bound: past it the uprights would have to interpenetrate, so a criterion
+     * asking for more than fit is not asking for a bigger number — it cannot be
+     * met by adding legs at all, and saying so is the honest answer.
+     *
+     * Without this the end-load criterion is unbounded. Its share tends to half
+     * an upright width rather than to zero, so a limit just above that floor
+     * asks for billions, which used to come back as a count and take the run's
+     * setting-out array with it. */
+    var nFits = L.trussWidth > EPS && L.wallWidth > EPS
+      ? Math.max(1, Math.floor(L.wallWidth / L.trussWidth + 1e-9))
+      : Infinity;
+    var cap = function (n) {
+      return n > nFits ? Infinity : n;
+    };
 
-    var governing = candidates.reduce(function (worst, c) {
+    /* `n` is the answer, `wanted` is what the criterion asked for before the
+     * ceiling was applied — worth keeping, because "it would take 50 and only 33
+     * fit" says a great deal more than "no number works". */
+    var candidates = [
+      {
+        id: 'spacing',
+        label: 'how far apart the uprights can be',
+        n: cap(bySpacing),
+        wanted: bySpacing
+      },
+      {
+        id: 'load',
+        label: 'weight of wall each upright carries',
+        n: cap(byLoad),
+        wanted: byLoad
+      },
+      {
+        id: 'stability',
+        label: 'staying upright in the wind',
+        n: cap(byStability),
+        wanted: byStability
+      }
+    ];
+
+    var reachable = candidates.filter(function (c) {
+      return isFinite(c.n);
+    });
+    /* Two uprights unless only one will fit behind the wall, in which case one
+     * is the truthful answer rather than a fictional pair in the same place. */
+    var minimum = reachable.reduce(function (m, c) {
+      return Math.max(m, c.n);
+    }, Math.min(2, nFits));
+
+    var blocked = candidates.filter(function (c) {
+      return !isFinite(c.n);
+    })[0] || null;
+
+    var governing = blocked || reachable.reduce(function (worst, c) {
       return c.n > worst.n ? c : worst;
-    }, candidates[0]);
-    if (!isFinite(byStability)) governing = candidates[2];
+    }, reachable[0]);
 
     var override = Number(input.uprights);
-    var usingOverride = isFinite(override) && override >= 2;
+    var usingOverride = isFinite(override) && override >= 1;
     var uprights = usingOverride ? Math.round(override) : minimum;
 
     /* ------------------------------ the checks ----------------------- */
@@ -829,10 +875,17 @@
             'is only ' + (L.wallWidth * 1000).toFixed(0) + ' mm — there is no way to keep it ' +
             'out of sight behind it.'
         );
-      } else if (spacing + EPS < L.trussWidth) {
+      } else if (uprights > 1 && spacing + EPS < L.trussWidth) {
         warnings.push(
           'At ' + spacing.toFixed(2) + ' m centres the uprights would be closer together ' +
             'than they are wide — they would be touching.'
+        );
+      }
+      if (L.trussWidth > maxSpacing + 1e-9) {
+        warnings.push(
+          'The spacing limit of ' + maxSpacing.toFixed(2) + ' m is narrower than the ' +
+            (L.trussWidth * 1000).toFixed(0) + ' mm uprights themselves, so the two can ' +
+            'never both be satisfied. Raise the limit or use a narrower truss.'
         );
       }
       if (spacing > maxSpacing + 1e-9) {
@@ -844,15 +897,10 @@
       if (wallPerUpright > maxLoadPerUpright + 1e-6) {
         warnings.push(
           'The worst-off upright would carry ' + Math.round(wallPerUpright) + ' kg of wall, ' +
-            'over the ' + Math.round(maxLoadPerUpright) + ' kg limit set.' +
-            (loadLimitReachable
-              ? ''
-              : ' No number of uprights will fix that: an end one carries at least half ' +
-                'its own width of wall — ' + Math.round(floorLoad) + ' kg — however close ' +
-                'together they get.')
+            'over the ' + Math.round(maxLoadPerUpright) + ' kg limit set.'
         );
       }
-      if (L.plateWidth > EPS && spacing < L.plateWidth) {
+      if (uprights > 1 && L.plateWidth > EPS && spacing < L.plateWidth) {
         warnings.push(
           'At ' + spacing.toFixed(2) + ' m apart the baseplates would overlap — they are ' +
             (L.plateWidth * 1000).toFixed(0) + ' mm wide.'
@@ -935,15 +983,21 @@
       /* Whether any number of uprights can hold it — distinct from needing a
        * lot of them. False when each upright brings more wind than it resists. */
       stabilityAchievable: isFinite(byStability),
+      /* Whether any count at all satisfies every criterion — stability is the
+       * usual one to fail, but a load limit an end upright cannot get under, or
+       * a spacing limit narrower than the truss, fail the same way. */
+      countAchievable: !blocked,
+      blockedBy: blocked,
+      uprightsThatFit: nFits,
       /* The plate check is the usual one to fail, but it is switched off when no
        * plate width has been given, so the truss's own width has to be checked
        * too — otherwise two uprights standing in the same place come back as a
        * perfectly good scheme. */
       buildable:
-        isFinite(byStability) &&
+        !blocked &&
         !L.tooNarrowToHide &&
-        !(L.plateWidth > EPS && spacing + EPS < L.plateWidth) &&
-        !(L.trussWidth > EPS && spacing + EPS < L.trussWidth),
+        !(uprights > 1 && L.plateWidth > EPS && spacing + EPS < L.plateWidth) &&
+        !(uprights > 1 && L.trussWidth > EPS && spacing + EPS < L.trussWidth),
 
       cases: cases,
       byCase: cases.reduce(function (acc, c) {

@@ -1892,15 +1892,30 @@
 
     var L = result.layout;
 
-    /* When each upright brings more wind than it resists there is no answer to
-     * quote, and quoting the fallback count would be a lie. */
-    if (!result.stabilityAchievable) {
+    /* When no count can satisfy a criterion there is no answer to quote, and
+     * quoting the fallback count would be a lie. Which criterion it is decides
+     * what to do about it, so say that rather than always blaming stability. */
+    if (!result.countAchievable) {
       $('led-count').textContent = '—';
       $('led-count-unit').textContent = 'no number works';
+      /* Two different ways to be impossible: the demand runs away as uprights
+       * are added, or it is simply more than fit behind the wall. */
+      var short = isFinite(result.blockedBy.wanted)
+        ? 'It would take ' + result.blockedBy.wanted + ' and only ' +
+          result.uprightsThatFit + ' fit behind the wall. '
+        : '';
       $('led-note').innerHTML =
-        'Every upright added brings more exposed truss than it resists, so more of them ' +
-        'makes it worse. Cut the uprights down closer to the wall, reach further forward, ' +
-        'or move the ballast back.';
+        result.blockedBy.id === 'stability'
+          ? short +
+            (short
+              ? 'Reach further forward with the baseplates, or more ballast on each.'
+              : 'Every upright added brings more exposed truss than it resists, so more of ' +
+                'them makes it worse. Cut the uprights down closer to the wall, reach ' +
+                'further forward, or move the ballast back.')
+          : result.blockedBy.id === 'load'
+            ? short + 'Raise the limit, use lighter panels, or narrower truss so more of ' +
+              'them fit.'
+            : short + 'Raise the spacing limit or use narrower truss.';
     } else {
       $('led-count').textContent = String(result.uprights);
       $('led-count-unit').textContent = result.uprights === 1 ? 'upright' : 'uprights';
@@ -2456,7 +2471,7 @@
     );
 
     // spacing dimension between the first two upright centres
-    if (n > 1 && result.ok && result.stabilityAchievable) {
+    if (n > 1 && result.ok && result.countAchievable) {
       var x0 = X(centres[0]);
       var x1 = X(centres[1]);
       var dimY = groundY + 16;
@@ -2477,7 +2492,7 @@
      * next to an answer panel showing a dash is worse than saying nothing. */
     var caption = !result.ok
       ? 'geometry not valid — see the notes above'
-      : !result.stabilityAchievable
+      : !result.countAchievable
         ? 'no upright count works — see the notes above'
         : n + (n === 1 ? ' upright' : ' uprights') + ' across ' + fmtLength(L.wallWidth);
     parts.push(text(VW / 2, 16, caption, 'dg-label', 'middle'));
@@ -2489,7 +2504,7 @@
         role: 'img',
         'aria-label': caption + ', behind a ' + fmtLength(L.wallWidth) + ' by ' +
           fmtLength(L.wallHeight) + ' wall' +
-          (result.ok && result.stabilityAchievable
+          (result.ok && result.countAchievable && n > 1
             ? ', spaced ' + fmtLength(result.spacing) + ' apart.'
             : '.'),
         xmlns: 'http://www.w3.org/2000/svg'

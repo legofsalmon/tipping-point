@@ -324,6 +324,17 @@ which is a closed form, so the answer is exact rather than iterated. The same
 algebra run backwards gives the ballast each baseplate needs, rounded up to
 something you can actually order.
 
+All three of those are *lower* bounds. There is also an upper one, which is how
+many uprights fit behind the wall without interpenetrating — `width ÷ upright
+width`, 33 for a 10 m wall on 300 mm truss. A criterion asking for more than that
+is not asking for a bigger number: it cannot be met by adding legs at all, and
+the app says so and states how far off it is ("it would take 66 and only 33 fit")
+rather than quoting a count nobody could build. That ceiling also earns its keep
+in the algebra: an end upright carries more than an interior one only once the
+bays are narrower than an upright is wide, which needs more uprights than fit —
+so on any buildable run the interior upright governs, and the load limit only
+ever has to be solved for its share.
+
 **Worked example**, and the defaults the app opens with: a 10 m × 5 m outdoor
 wall at 40 kg/m² — 2 tonnes of panel — on 6 m of 300 mm box truss, baseplates
 reaching 500 mm forward and 1 m back, in an 11 m/s (25 mph) wind.
