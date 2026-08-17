@@ -521,6 +521,62 @@ Once it has lifted, the pivot edge is taken as fixed, and a corner push is
 simulated as the equivalent flat-on problem — exact for the tipping point and the
 lean, approximate only for how fast it falls.
 
+### Where the load goes on, and why the top wins
+
+The overturning moment is the force times the height it acts at, and there is no
+other term in it. So the force needed is *exactly* inversely proportional to that
+height — on the reference wall it is `22,722 ÷ h` newtons, a plain hyperbola with
+no optimum short of the highest point on the structure. The LED simulator lets you
+put the load in either of the two places that mean something:
+
+| Where | Height | Force to start it moving |
+| --- | --- | --- |
+| Spread as wind — resultant at mid-wall | 3.0 m | 7,574 N |
+| One load at the top of the truss | 6.0 m | 3,787 N |
+
+Exactly half, because 6.0 m is exactly twice 3.0 m. **The top is the best place**,
+and "the top" means the highest point of the whole assembly — the truss top when
+the uprights stand above the wall, the wall top when the wall stands above them.
+The app names which one it is using, because that flips with the geometry.
+
+Three honest qualifications, all of which the app states on screen:
+
+- **Wind does not get the choice.** A uniform pressure's resultant acts at the
+  centroid of the area it is pressing on, which is mid-height. That is not a
+  modelling shortcut, it is what wind does — so the wind case is not free to
+  "push at the top", and switching the simulator to a top load switches the wind
+  speed readout off with it. A point load up there is a different event: a line to
+  a pull-lift or a vehicle, a suspended load swinging in, a telehandler boom.
+- **The force halves; the work does not.** The energy to tip is set by how far the
+  centre of gravity has to climb — 86 mm here, 3.7 kJ — and that is the same
+  wherever you push. Half the force simply means twice the travel.
+- **Highest is best only for the way this model can fall.** The whole run is one
+  rigid body going over forwards. A shove at one end twists the run instead, and
+  nothing here checks that, so the easiest place to *tip* it is not necessarily
+  the easiest place to *damage* it.
+
+The best **angle** is `θ* = γ − 90°`, aimed slightly upward so the force is square
+to the line from the pivot to the load. It is real and it is nearly worthless up
+high: 4.8° above level at the top of the truss saves 0.35%, because that line is
+almost vertical already and there is nothing left for aim to win. Push low and it
+matters — at the bottom of the wall the same trick saves 13%. Aiming *down*, which
+is what a line to a ground anchor does, costs far more than aiming up ever gains.
+
+### Saying a force in a way that means something
+
+A force in newtons means little on its own, so both modes put it a second way. The
+one rule is that a horizontal push and a weight are **not** interchangeable, and
+the wording has to keep them apart: 4,817 N of wind on the reference wall makes
+14,452 N·m trying to tip it, while the same 4,817 N hung on its face makes
+1,397 N·m holding it *down* — ten times smaller and the opposite sign. So the app
+says "the same pull as 491 kg on a line", never "the weight of a small car".
+
+The kilogram figure is not an analogy at all — it is the same force in kilograms
+force, exact by definition. Beside it goes a band describing what that is like to
+push against, and where the force happens to land within 10% of a standard chain
+hoist — 125, 250, 500, 1000 or 2000 kg — it says so instead, because a named
+comparison is worth having only when it is actually accurate.
+
 ### What it assumes
 
 - Everything is rigid, and the pole is fixed solidly to the plate.

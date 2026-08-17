@@ -184,7 +184,45 @@
     if (newtons < 200) return 'a firm shove';
     if (newtons < 500) return 'a hard two-handed shove, or a solid kick';
     if (newtons < 1200) return 'about as hard as a person can push at all';
-    return 'more than a person can push — vehicle or winch territory';
+    /* Past here nobody is pushing anything, and the old single band covered a
+     * factor of two hundred — which is most of where the LED wall lives. */
+    if (newtons < 2000) return 'two or three people, braced and shoving together';
+    if (newtons < 20000) return 'hoist and winch loads, past anything a person can push';
+    if (newtons < 60000) return 'more than a two-tonne hoist is rated for';
+    return 'tens of tonnes of pull, ground-anchor work rather than ballast';
+  }
+
+  /* The sizes of electric chain hoist that turn up on every job. Named only
+   * when the force really is one of them, because a comparison that stretches
+   * to cover a whole band is padding rather than a comparison. */
+  var HOIST_KG = [125, 250, 500, 1000, 2000];
+
+  function asHoist(newtons, g) {
+    var kg = newtons / (g || P.G_STANDARD);
+    for (var i = 0; i < HOIST_KG.length; i += 1) {
+      if (Math.abs(kg - HOIST_KG[i]) <= HOIST_KG[i] * 0.1) {
+        return 'about what a ' + HOIST_KG[i] + ' kg hoist holds at capacity';
+      }
+    }
+    return '';
+  }
+
+  /**
+   * A force, said in the way a rigger would say it.
+   *
+   * The kilogram figure is not an analogy — it is the same force in kilograms
+   * force, exact by definition — but the wording has to keep it a *pull on a
+   * line*, never a weight sitting on the thing. Those are not interchangeable
+   * here: 4,817 N of wind on the reference wall makes 14,452 N·m trying to tip
+   * it, while 4,817 N hung on its face makes 1,397 N·m holding it down. Ten
+   * times smaller, and the opposite sign.
+   */
+  function forceLikeness(newtons, g) {
+    if (!isFinite(newtons) || newtons <= 0) return '';
+    var kg = newtons / (g || P.G_STANDARD);
+    /* Whole kilograms once there are enough of them for a fraction to be noise. */
+    return 'the same pull as ' + fmtMass(kg >= 20 ? Math.round(kg) : kg) + ' on a line — ' +
+      (asHoist(newtons, g) || feelsLike(newtons));
   }
 
   /* ------------------------------------------------------------------ *
@@ -781,6 +819,7 @@
     dragForce: null, // set while a pointer is dragging
     dragPoint: null, // { x, y } in canvas pixels, for the rubber band
     maxForce: 1,
+    load: null, // LED mode: where the load acts and at what angle
     lastStatus: '',
     palette: null,
     hintShown: true
@@ -861,19 +900,76 @@
     return Math.sqrt(Math.max(0, (2 * q) / lastLed.airDensity));
   }
 
+  /**
+   * The wording around the slider, which depends on the mode *and*, in LED
+   * mode, on where the load is being put — a point push at the top of the truss
+   * is not wind and must not be labelled as if it were.
+   */
+  function updateSimChrome() {
+    var asWind = currentMode === 'led' && (!sim.load || sim.load.isWind);
+    $('sim-force-label').textContent = asWind
+      ? 'Wind of'
+      : currentMode === 'led'
+        ? 'Pushing with'
+        : 'Push with';
+    $('sim-tip').firstElementChild.innerHTML = asWind
+      ? 'Drag to lean on the wall — or set a wind speed below and press <em>Apply</em>.'
+      : currentMode === 'led'
+        ? 'Drag to lean on it — or set a force below and press <em>Apply</em>.'
+        : 'Drag anywhere to push — or set a force below and press <em>Apply</em>.';
+  }
+
+  /** One readout cell: the figure, and what it is. */
+  function qty(value, of) {
+    return '<span class="q"><b>' + esc(value) + '</b>' +
+      (of ? ' <span>' + esc(of) + '</span>' : '') + '</span>';
+  }
+
   function updateSimForceLabel() {
     var pct = Number($('sim-force-input').value);
     var force = sliderForce();
     var unit = $('force-unit').value || 'N';
+    var out = $('sim-force-out');
 
     if (currentMode === 'led') {
-      var wind = forceAsWind(force);
-      $('sim-force-out').textContent = isFinite(wind)
-        ? fmtSpeed(wind) + ' · ' + fmtForce(force, unit) + ' on the wall'
-        : fmtForce(force, unit);
+      var g = lastLed && lastLed.ok ? lastLed.layout.g : P.G_STANDARD;
+      var cells = [];
+
+      /* Wind only where the load actually is wind. A point load at the top of
+       * the truss has a wind speed you could work out and no business quoting,
+       * because no wind puts its whole force up there. */
+      if (sim.load && sim.load.isWind) {
+        var wind = forceAsWind(force);
+        if (isFinite(wind)) {
+          cells.push(qty(fmtSpeed(wind), LW.BEAUFORT_NAMES[LW.beaufort(wind)] || 'wind'));
+        }
+      }
+      cells.push(
+        qty(fmtForce(force, unit), sim.load && sim.load.isWind ? 'on the wall' : 'at the top')
+      );
+      if (sim.load) {
+        cells.push(
+          qty(
+            fmtLength(sim.load.point.y) + ' up',
+            Math.abs(sim.load.angleDeg) > 0.05
+              ? fmt(Math.abs(sim.load.angleDeg), 1) + '° above level'
+              : 'level'
+          )
+        );
+      }
+      cells.push(qty(pct + '%', 'of what it takes'));
+      var like = forceLikeness(force, g);
+      out.innerHTML = cells.join('') + (like ? '<span class="q-like">' + esc(like) + '</span>' : '');
       return;
     }
-    $('sim-force-out').textContent = fmtForce(force, unit) + ' · ' + pct + '% of what it takes';
+
+    out.innerHTML =
+      qty(fmtForce(force, unit), '') +
+      qty(pct + '%', 'of what it takes') +
+      (function () {
+        var like = forceLikeness(force, lastResult ? lastResult.gravity : P.G_STANDARD);
+        return like ? '<span class="q-like">' + esc(like) + '</span>' : '';
+      })();
   }
 
   function resetSim() {
@@ -1321,15 +1417,30 @@
 
     var tilt = (st.theta * 180) / Math.PI;
     var led = currentMode === 'led';
+    var asWindLoad = led && sim.load && sim.load.isWind;
     var bits = [(led ? STATUS_TEXT_LED[status] : STATUS_TEXT[status]) || ''];
+    /* "the wind is not enough" is the wrong noun for a load put on by hand. */
+    if (led && !asWindLoad && status === 'holding') {
+      bits[0] = 'Holding — that is not enough to lift it.';
+    }
     if (force > 0) {
-      var wind = led ? forceAsWind(force) : NaN;
-      bits.push(
-        led && isFinite(wind)
-          ? 'Wind of <span class="qty">' + esc(fmtSpeed(wind)) + '</span>, ' +
+      /* Only call it wind where it is wind. With the load put on at the top it
+       * is a point push, and quoting a wind speed for it would be a fiction —
+       * no wind concentrates its whole force up there. */
+      var asWind = asWindLoad ? forceAsWind(force) : NaN;
+      if (isFinite(asWind)) {
+        bits.push(
+          'Wind of <span class="qty">' + esc(fmtSpeed(asWind)) + '</span>, ' +
             esc(fmtForce(force, unit)) + ' on the wall.'
-          : 'Pushing <span class="qty">' + esc(fmtForce(force, unit)) + '</span>.'
-      );
+        );
+      } else if (led && sim.load) {
+        bits.push(
+          'Pushing <span class="qty">' + esc(fmtForce(force, unit)) + '</span> at ' +
+            esc(sim.load.point.what) + ', ' + esc(fmtLength(sim.load.point.y)) + ' up.'
+        );
+      } else {
+        bits.push('Pushing <span class="qty">' + esc(fmtForce(force, unit)) + '</span>.');
+      }
     }
     if (st.theta > 1e-4 && !st.fallen) {
       bits.push(
@@ -1364,13 +1475,19 @@
           '</span> <em>past</em> the pivot — its own weight is pulling it over now.';
     }
 
-    // announce only when the situation actually changes, not every frame
+    /* Announce only when the situation actually changes, not every frame — and
+     * say it the way the visible line says it, which in LED mode is not the
+     * pole wording and depends on where the load is being put on. */
     if (status !== sim.lastStatus) {
       sim.lastStatus = status;
-      $('sim-announce').textContent = STATUS_TEXT[status] || '';
+      var said = bits[0] || '';
+      var loadSaid = led && sim.load
+        ? ' Load at ' + sim.load.point.what + ', ' + fmtLength(sim.load.point.y) + ' up.'
+        : '';
+      $('sim-announce').textContent = said + loadSaid;
       $('sim-canvas').setAttribute(
         'aria-label',
-        'Simulation: ' + (STATUS_TEXT[status] || '') + ' Leaning ' + fmt(tilt, 1) + ' degrees.'
+        'Simulation: ' + said + loadSaid + ' Leaning ' + fmt(tilt, 1) + ' degrees.'
       );
     }
 
@@ -1503,6 +1620,15 @@
       startSimLoop();
     });
 
+    /* Moving the load rebuilds the body and rescales the slider with it, so the
+     * whole thing has to go back through update() rather than just redraw. */
+    ['sim-push-where', 'sim-best-angle'].forEach(function (id) {
+      $(id).addEventListener('change', function () {
+        resetSim();
+        update();
+      });
+    });
+
     if (window.ResizeObserver) {
       new ResizeObserver(function () {
         dropPalette();
@@ -1575,8 +1701,9 @@
 
     if (isFinite(chosen.tipForce)) {
       $('out-force-equiv').innerHTML =
-        'The weight of <strong>' + esc(fmtMass(chosen.tipForce / P.G_STANDARD)) +
-        '</strong> hanging on a rope — ' + esc(feelsLike(chosen.tipForce)) + '.';
+        'The same pull as <strong>' + esc(fmtMass(chosen.tipForce / P.G_STANDARD)) +
+        '</strong> on a line — ' + esc(asHoist(chosen.tipForce, result.gravity) ||
+          feelsLike(chosen.tipForce)) + '.';
     } else {
       $('out-force-equiv').textContent = '';
     }
@@ -2555,7 +2682,149 @@
    * The whole run as one rigid body tipping forward over the line of the
    * baseplate front edges — which is the global check the numbers describe.
    */
-  function ledSimBody(result) {
+  /**
+   * Where a load can be put on the structure, and what each place is worth.
+   *
+   * Wind is spread over the whole face, so its resultant acts at the middle of
+   * the wall and there is nothing to choose about it. A point load can go
+   * anywhere, and since the overturning moment is the force times the height it
+   * acts at, the higher it goes the less of it is needed — so the easiest place
+   * to tip the thing from is the highest point of the whole assembly. That is
+   * the top of the truss when the uprights stand above the wall, and the top of
+   * the wall when the wall stands above them.
+   */
+  function ledLoadPoints(L) {
+    var overTop = L.trussHeight >= L.wallTop;
+    return {
+      wind: {
+        id: 'wind',
+        x: L.wallX,
+        y: L.wallCentreHeight,
+        what: 'the middle of the wall'
+      },
+      top: {
+        id: 'top',
+        x: overTop ? 0 : L.wallX,
+        y: overTop ? L.trussHeight : L.wallTop,
+        what: overTop ? 'the top of the truss' : 'the top of the wall'
+      }
+    };
+  }
+
+  /**
+   * The angle that gets the most out of a given force, measured the way the
+   * rest of the app measures push angles: negative is tilted upwards.
+   *
+   * The lever the force works through is `R·sin(γ − θ)`, which is largest when
+   * the force is square to the line from the pivot to the hand — so aim across
+   * that line rather than along it. It is worth almost nothing when pushing
+   * high, where that line is nearly vertical already, and a great deal when
+   * pushing low.
+   */
+  function bestPushAngleDeg(L, point) {
+    var reach = Math.max(L.frontPivotX - point.x, 1e-6);
+    return (-Math.atan2(reach, Math.max(point.y, 1e-6)) * 180) / Math.PI;
+  }
+
+  function ledLoadChoice(result) {
+    var points = ledLoadPoints(result.layout);
+    var where = $('sim-push-where').value === 'top' ? points.top : points.wind;
+    var isWind = where.id === 'wind';
+    var best = bestPushAngleDeg(result.layout, where);
+    return {
+      points: points,
+      point: where,
+      isWind: isWind,
+      bestAngleDeg: best,
+      angleDeg: !isWind && $('sim-best-angle').checked ? best : 0
+    };
+  }
+
+  /**
+   * What the choice of where to push is actually buying, in force.
+   *
+   * Both figures are the force that just starts it moving, from the two places
+   * a load can go — so the ratio between them is the leverage, and it is the
+   * whole reason the answer to "where is best" is "as high as you can reach".
+   */
+  function loadComparison(result, load) {
+    var square = function (point) {
+      return S.onsetForce(ledSimBody(result, { point: point, angleDeg: 0 }));
+    };
+    var best = S.onsetForce(
+      ledSimBody(result, { point: load.point, angleDeg: load.bestAngleDeg })
+    );
+    var here = square(load.point);
+    return {
+      wind: square(load.points.wind),
+      top: square(load.points.top),
+      here: here,
+      atBestAngle: best,
+      angleSaving: here > 0 ? 1 - best / here : 0
+    };
+  }
+
+  function updateLoadHint(result) {
+    var L = result.layout;
+    var load = sim.load;
+    var c = loadComparison(result, load);
+    var unit = $('force-unit').value || 'N';
+
+    /* Wind arrives at whatever angle it arrives at, so offering to aim it is
+     * meaningless — the choice only exists for a load someone is applying. */
+    $('sim-best-angle').parentNode.hidden = load.isWind;
+    $('sim-best-angle-label').textContent =
+      'At the best angle (' + fmt(Math.abs(load.bestAngleDeg), 1) + '° above level)';
+
+    /* The angle is worth almost nothing when pushing high and a great deal when
+     * pushing low, which is the part of it worth knowing. */
+    var lowPoint = { x: L.wallX, y: Math.max(L.wallBottom, 0.05) };
+    var lowSquare = S.onsetForce(ledSimBody(result, { point: lowPoint, angleDeg: 0 }));
+    var lowBest = S.onsetForce(
+      ledSimBody(result, { point: lowPoint, angleDeg: bestPushAngleDeg(L, lowPoint) })
+    );
+
+    var bits = [];
+    if (load.isWind) {
+      bits.push(
+        'Spread over the face, so it comes to one push at ' + load.points.wind.what + ', ' +
+          fmtLength(load.points.wind.y) + ' up: ' + fmtForce(c.wind, unit) +
+          ' starts it moving.'
+      );
+      bits.push(
+        'At ' + load.points.top.what + ', ' + fmtLength(load.points.top.y) +
+          ' up, the same job takes ' + fmtForce(c.top, unit) + ' — ' +
+          fmtPercentLabel(c.top / c.wind) + ' of it, since the moment is the force times the ' +
+          'height it acts at and nothing else. Wind gets no say in either, which is rather ' +
+          'the point of it.'
+      );
+    } else {
+      bits.push(
+        load.points.top.what.charAt(0).toUpperCase() + load.points.top.what.slice(1) + ', ' +
+          fmtLength(load.points.top.y) + ' up — the most leverage on the structure: ' +
+          fmtForce(c.top, unit) + ' does what ' + fmtForce(c.wind, unit) + ' of wind has to.'
+      );
+      bits.push(
+        'Nothing standing on the ground reaches up there, mind: it takes a line to a ' +
+          'pull-lift, a suspended load swinging in, or the boom of a telehandler.'
+      );
+      bits.push(
+        'Best angle is ' + fmt(Math.abs(load.bestAngleDeg), 1) + '° above level, worth ' +
+          fmtPercentLabel(c.angleSaving) + ' — aim hardly matters this high up. Down at the ' +
+          'bottom of the wall the same trick saves ' +
+          fmtPercentLabel(lowSquare > 0 ? 1 - lowBest / lowSquare : 0) + '.'
+      );
+      bits.push(
+        'The force halves but the work does not: the centre of gravity still has to climb ' +
+          'the same ' + fmtLength(sim.body ? S.cog(sim.body, S.makeState()).riseToBalance : 0) +
+          ', so it takes twice the travel.'
+      );
+    }
+
+    $('sim-where-hint').textContent = bits.join(' ');
+  }
+
+  function ledSimBody(result, load) {
     var L = result.layout;
     var n = result.uprights;
     var t = L.plateThickness;
@@ -2587,7 +2856,7 @@
       // a ballasted steel plate on a hard floor; sliding is not the interesting
       // failure here, so it is held unless the user says otherwise
       mu: 0.6,
-      pushAngleDeg: 0,
+      pushAngleDeg: load.angleDeg,
       pivotX: L.frontPivotX,
       parts: [
         {
@@ -2616,7 +2885,7 @@
         }
       ],
       shapes: shapes,
-      push: { x: L.wallX, y: L.wallCentreHeight }
+      push: { x: load.point.x, y: load.point.y }
     });
   }
 
@@ -2790,10 +3059,17 @@
       ? fmt(result.layout.area, 1) + ' m² of wall, so ' + fmtMass(result.layout.wallMass) +
         ' in panels alone.'
       : '';
+    /* The land description is how anyone without an anemometer actually reads
+     * the wind, and the gust note matters more than any of it: a forecast
+     * quotes a mean, the structure feels the gust, and force goes as the
+     * square — so a 1.5x gust is 2.25x the load. */
     $('wind-hint').textContent = result.windSpeed > 0
       ? 'Beaufort ' + result.beaufort + ', ' + result.beaufortName + ' — ' +
+        (LW.BEAUFORT_SIGNS[result.beaufort] || '') + '. ' +
         fmt(LW.fromBase(result.windSpeed, 'mph', LW.SPEED_UNITS), 0) + ' mph, ' +
-        fmt(LW.fromBase(result.windSpeed, 'km/h', LW.SPEED_UNITS), 0) + ' km/h.'
+        fmt(LW.fromBase(result.windSpeed, 'km/h', LW.SPEED_UNITS), 0) + ' km/h. ' +
+        'Put the gust in here, not the forecast average — gusts run about 1.4 to 1.6 times ' +
+        'the mean, and that is twice the load.'
       : 'Still air.';
 
     /* Drawn even when an input is out of range — a frozen picture beside a
@@ -2803,16 +3079,19 @@
     $('diagram-led-side').innerHTML = buildLedSideView(result);
     $('diagram-led-front').innerHTML = buildLedFrontView(result);
 
-    /* 100% on the slider is the wind it actually goes over at, so the same
-     * "just under holds, just over goes" trick works as in pole mode. */
-    sim.body = ledSimBody(result);
-    sim.maxForce = Math.max(
-      LW.windPressure(Math.max(result.tippingWindSpeed, 0.1), result.airDensity) *
-        result.forceCoefficient * result.layout.area,
-      1
-    );
+    /* 100% on the slider is the force that just starts this body moving, so the
+     * "just under holds, just over goes" trick works the same way in both modes
+     * and wherever the load is put on. It is a shade above the answer panel's
+     * tipping wind, because that figure also counts the wind on the bare truss
+     * and this is a single push on the wall. */
+    var load = ledLoadChoice(result);
+    sim.body = ledSimBody(result, load);
+    sim.load = load;
+    sim.maxForce = Math.max(S.onsetForce(sim.body), 1);
     sim.state.theta = Math.min(sim.state.theta, sim.body.thetaEnd);
     if (sim.state.theta < sim.body.thetaEnd) sim.state.fallen = false;
+    updateLoadHint(result);
+    updateSimChrome();
     updateSimForceLabel();
     renderSimReadouts();
     if (sim.raf == null) drawSim();
@@ -2828,10 +3107,7 @@
 
     // the simulation panel means something different in each mode
     $('sim-heading').textContent = currentMode === 'led' ? 'Blow it over' : 'Give it a push';
-    $('sim-force-label').textContent = currentMode === 'led' ? 'Wind of' : 'Push with';
-    $('sim-tip').firstElementChild.innerHTML = currentMode === 'led'
-      ? 'Drag to lean on the wall — or set a wind speed below and press <em>Apply</em>.'
-      : 'Drag anywhere to push — or set a force below and press <em>Apply</em>.';
+    updateSimChrome();
     var heldLabel = $('sim-base-held').parentNode.querySelector('span');
     if (heldLabel) {
       heldLabel.textContent = currentMode === 'led'

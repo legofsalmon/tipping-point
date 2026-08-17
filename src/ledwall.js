@@ -138,6 +138,24 @@
     'storm', 'violent storm', 'hurricane force'
   ];
 
+  /* What each force looks like on the ground, which is how anyone without an
+   * anemometer actually judges it. The scale's own land descriptions. */
+  var BEAUFORT_SIGNS = [
+    'smoke rises straight up',
+    'smoke drifts, vanes do not turn',
+    'leaves rustle, you feel it on your face',
+    'leaves and small twigs in constant motion',
+    'dust and loose paper lifting, small branches moving',
+    'small trees in leaf begin to sway',
+    'large branches moving, umbrellas hard to use',
+    'whole trees in motion, hard work walking into it',
+    'twigs breaking off trees, walking is difficult',
+    'chimney pots and slates coming off',
+    'trees uprooted, structural damage',
+    'widespread damage',
+    'devastation'
+  ];
+
   /* ------------------------------------------------------------------ *
    * Geometry and mass layout
    * ------------------------------------------------------------------ */
@@ -1034,6 +1052,7 @@
     TRUSS_PRESETS: TRUSS_PRESETS,
     CF_PRESETS: CF_PRESETS,
     BEAUFORT_NAMES: BEAUFORT_NAMES,
+    BEAUFORT_SIGNS: BEAUFORT_SIGNS,
     toBase: toBase,
     fromBase: fromBase,
     windPressure: windPressure,

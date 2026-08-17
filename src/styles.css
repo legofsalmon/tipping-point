@@ -820,6 +820,52 @@ button:active {
   font-weight: 620;
 }
 
+/* The load, read three ways: as wind, as a force, and as something you can
+ * picture. They wrap onto their own lines on a phone rather than truncating. */
+.sim-force output {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  align-items: baseline;
+  margin-top: 3px;
+}
+
+.sim-force .q {
+  white-space: nowrap;
+}
+
+.sim-force .q b {
+  font-weight: 660;
+}
+
+.sim-force .q span {
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.sim-force .q-like {
+  flex-basis: 100%;
+  font-weight: 400;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+/* where the load goes on */
+
+.sim-where select {
+  width: 100%;
+  margin: 4px 0 8px;
+}
+
+.sim-where > label:first-child {
+  display: block;
+  font-size: 0.85rem;
+}
+
+.sim-where .hint {
+  margin: 8px 0 0;
+}
+
 input[type="range"] {
   width: 100%;
   margin: 0;

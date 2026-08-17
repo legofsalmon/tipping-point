@@ -99,6 +99,19 @@
           </div>
 
           <div class="sim-controls">
+            <div class="sim-where led-only">
+              <label for="sim-push-where">Pushing</label>
+              <select id="sim-push-where">
+                <option value="wind">spread over the wall, the way wind does</option>
+                <option value="top">as one load at the very top</option>
+              </select>
+              <label class="check">
+                <input type="checkbox" id="sim-best-angle" />
+                <span id="sim-best-angle-label">At the best angle</span>
+              </label>
+              <p class="hint" id="sim-where-hint"></p>
+            </div>
+
             <div class="sim-force">
               <label for="sim-force-input">
                 <span id="sim-force-label">Push with</span>
@@ -751,7 +764,12 @@
               <li>
                 The whole run is treated as one rigid body tipping about the line of the
                 baseplate edges, with the overturning shared evenly between uprights. That is
-                the global check, and individual bases still want checking for uplift.
+                the global check, and individual bases still want checking for uplift. It is
+                also the only way it can go here: a shove at one end of the run would twist it
+                rather than lay it down flat, and nothing here checks that. So when the
+                simulator says the highest point is the easiest place to push from, that is
+                the easiest place to tip the <em>whole run forwards</em> — the easiest place
+                to damage it may well be somewhere else entirely.
               </li>
               <li>
                 The uprights are set out so that <em>none of the truss shows past the ends of
