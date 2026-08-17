@@ -74,11 +74,12 @@ writeFileSync(join(ROOT, 'dist/tipping-point.html'), html);
 console.log('wrote dist/tipping-point.html (%d KB)', Math.round(html.length / 1024));
 
 if (process.argv.includes('--fragment')) {
-  // strip the document wrapper, keep <title> so a host can pick the name up
-  const title = (html.match(/<title>([\s\S]*?)<\/title>/) || [])[1] || 'Tipping Point';
+  /* Strip the document wrapper. The host supplies <head> and <body>, and
+   * takes the page's name from <title> — so that's the short name only, with
+   * the "what it does" part left to whatever blurb the host asks for. */
   const style = (html.match(/<style>[\s\S]*?<\/style>/) || [])[0] || '';
   const body = (html.match(/<body>([\s\S]*)<\/body>/) || [])[1] || '';
-  const fragment = `<title>${title}</title>\n${style}\n${body.trim()}\n`;
+  const fragment = `<title>Tipping Point</title>\n${style}\n${body.trim()}\n`;
   writeFileSync(join(ROOT, 'dist/fragment.html'), fragment);
   console.log('wrote dist/fragment.html (%d KB)', Math.round(fragment.length / 1024));
 }
