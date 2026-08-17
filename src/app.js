@@ -932,7 +932,11 @@
       sim.view = target;
       return;
     }
-    var k = 1 - Math.exp(-dt / 0.14);
+    /* Pull back quickly but settle in slowly: during a fall the object gains
+     * reach fast, and a symmetric ease lets it clip off the edge of the frame
+     * before the camera catches up. */
+    var tau = target.scale < sim.view.scale ? 0.05 : 0.18;
+    var k = 1 - Math.exp(-dt / tau);
     sim.view.scale += (target.scale - sim.view.scale) * k;
     sim.view.centreX += (target.centreX - sim.view.centreX) * k;
     sim.view.centreY += (target.centreY - sim.view.centreY) * k;
@@ -1084,18 +1088,7 @@
     }
     ctx.globalAlpha = 1;
 
-    /* the line the centre of mass has to cross: straight up from the pivot */
     var pivot = bodyPoint(view, 0, 0);
-    ctx.save();
-    ctx.setLineDash([4, 4]);
-    ctx.strokeStyle = c.muted;
-    ctx.globalAlpha = 0.5;
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(pivot.x, pivot.y);
-    ctx.lineTo(pivot.x, view.sy(b.r * 1.06));
-    ctx.stroke();
-    ctx.restore();
 
     /* Every solid part, rotated about the pivot. Anything thinner than a
      * couple of pixels is drawn at that minimum so it doesn't vanish. */
@@ -1132,17 +1125,60 @@
       ctx.globalAlpha = 1;
     });
 
-    /* the radial line out to the centre of mass, so you can watch it swing
-     * toward the vertical — that crossing is the moment it goes over */
+    /* The centre of mass is welded to the body, so it swings round with it on a
+     * fixed radius from the pivot — that faint line. What actually decides
+     * things is the plumb line hanging from it: while that lands inside the
+     * pivot the weight holds the object down, and the instant it lands outside,
+     * the same weight is pulling it over. */
     var cg = bodyPoint(view, b.cgPoint.x, b.cgPoint.y);
     ctx.strokeStyle = c.accent;
-    ctx.globalAlpha = 0.55;
-    ctx.lineWidth = 1.4;
+    ctx.globalAlpha = 0.35;
+    ctx.lineWidth = 1.2;
     ctx.beginPath();
     ctx.moveTo(pivot.x, pivot.y);
     ctx.lineTo(cg.x, cg.y);
     ctx.stroke();
     ctx.globalAlpha = 1;
+
+    var cogNow = S.cog(b, st);
+    var inside = cogNow.insideBy >= 0;
+    var plumbColour = inside ? c.accent : c.force;
+    var landX = view.sx(cogNow.x + st.slide);
+
+    ctx.save();
+    ctx.setLineDash([5, 4]);
+    ctx.strokeStyle = plumbColour;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(cg.x, cg.y);
+    ctx.lineTo(landX, view.groundY);
+    ctx.stroke();
+    ctx.restore();
+
+    // where the weight lands, and how that compares with the pivot
+    ctx.fillStyle = plumbColour;
+    ctx.beginPath();
+    ctx.moveTo(landX, view.groundY);
+    ctx.lineTo(landX - 5, view.groundY - 8);
+    ctx.lineTo(landX + 5, view.groundY - 8);
+    ctx.closePath();
+    ctx.fill();
+
+    var gapY = view.groundY + 15;
+    if (Math.abs(landX - pivot.x) > 3) {
+      ctx.strokeStyle = plumbColour;
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(landX, gapY);
+      ctx.lineTo(pivot.x, gapY);
+      ctx.stroke();
+      [landX, pivot.x].forEach(function (x) {
+        ctx.beginPath();
+        ctx.moveTo(x, gapY - 3.5);
+        ctx.lineTo(x, gapY + 3.5);
+        ctx.stroke();
+      });
+    }
 
     // centre of mass marker
     var rad = 7;
@@ -1286,6 +1322,25 @@
     var el = $('sim-status');
     el.className = 'sim-status ' + (STATUS_CLASS[status] || '');
     el.innerHTML = bits.join(' ');
+
+    /* The centre of gravity itself is bolted to the object; it is the plumb
+     * line under it that walks out over the pivot, so that is what gets
+     * reported. */
+    var cogEl = $('sim-cog');
+    if (st.fallen) {
+      cogEl.className = 'sim-cog is-over';
+      cogEl.innerHTML = 'Centre of gravity ended up outside the base — that is why it went.';
+    } else {
+      var cogNow = S.cog(b, st);
+      cogEl.className = 'sim-cog' + (cogNow.insideBy >= 0 ? '' : ' is-over');
+      cogEl.innerHTML = cogNow.insideBy >= 0
+        ? 'Centre of gravity <span class="qty">' + esc(fmtLength(cogNow.insideBy)) +
+          '</span> inside the pivot, lifted <span class="qty">' +
+          esc(fmtLength(cogNow.rise)) + '</span> of the ' +
+          esc(fmtLength(cogNow.riseToBalance)) + ' it has to climb.'
+        : 'Centre of gravity <span class="qty">' + esc(fmtLength(-cogNow.insideBy)) +
+          '</span> <em>past</em> the pivot — its own weight is pulling it over now.';
+    }
 
     // announce only when the situation actually changes, not every frame
     if (status !== sim.lastStatus) {

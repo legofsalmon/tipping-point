@@ -344,6 +344,29 @@
   }
 
   /**
+   * Where the centre of mass has got to.
+   *
+   * The centre of mass is a fixed point *in the body* — it never leaves the
+   * object however far it rotates. What moves relative to the base is the
+   * plumb line hanging from it, and that is the whole test: while the plumb
+   * line lands inside the pivot the weight is holding the thing down, and the
+   * moment it lands outside, the same weight is pulling it over.
+   *
+   * It also rises as the object tips, peaking exactly at the balance point —
+   * which is why getting there costs energy and everything after it is free.
+   */
+  function cog(body, state) {
+    var p = rotate(state, body.cgPoint.x, body.cgPoint.y);
+    return {
+      x: p.x, // positive once it is past the pivot
+      y: p.y,
+      insideBy: -p.x, // positive while the plumb line is still inside the base
+      rise: p.y - body.hCg, // how far it has been lifted so far
+      riseToBalance: body.r - body.hCg // and how far it has to go
+    };
+  }
+
+  /**
    * Body-frame point (x from the pivot, negative into the object; y up) after
    * rotating by the current tip angle. Used for drawing.
    */
@@ -363,6 +386,7 @@
     isIdle: isIdle,
     onsetForce: onsetForce,
     describe: describe,
+    cog: cog,
     rotate: rotate,
     slideAccel: slideAccel
   };

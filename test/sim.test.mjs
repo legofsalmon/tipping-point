@@ -429,3 +429,57 @@ test('energy is conserved while it rocks, to within the integrator', () => {
   }
   assert.ok(worst < 0.01, `energy drifted by ${(worst * 100).toFixed(2)}%`);
 });
+
+/* ------------------- the centre of mass as it goes over ---------------- */
+
+test('the centre of mass never leaves the body, but its plumb line does', () => {
+  const body = bodyFor();
+  const state = S.makeState();
+
+  // upright: sitting a full lever arm inside the pivot, not yet lifted
+  let c = S.cog(body, state);
+  near(c.insideBy, body.d, 1e-12);
+  near(c.rise, 0, 1e-12);
+  near(c.y, body.hCg, 1e-12);
+
+  // at the balance point the plumb line is exactly over the pivot, and the
+  // centre of mass is at the top of its arc
+  state.theta = body.thetaBalance;
+  c = S.cog(body, state);
+  near(c.insideBy, 0, 1e-9);
+  near(c.y, body.r, 1e-9);
+  near(c.rise, c.riseToBalance, 1e-9);
+
+  // past it, the plumb line is outside the base and the weight is now pulling
+  state.theta = body.thetaBalance + 0.3;
+  c = S.cog(body, state);
+  assert.ok(c.insideBy < 0, 'plumb line should be outside the pivot');
+  assert.ok(c.rise < c.riseToBalance, 'and it should be dropping again');
+
+  // throughout, its distance from the pivot is fixed — it is part of the body
+  for (const deg of [0, 15, 30, 45, 70, 95]) {
+    state.theta = (deg * Math.PI) / 180;
+    const p = S.cog(body, state);
+    near(Math.hypot(p.x, p.y), body.r, 1e-12, `${deg} deg`);
+  }
+});
+
+test('the plumb line crosses the pivot exactly when the moments balance', () => {
+  const body = bodyFor();
+  const state = S.makeState();
+  for (const deg of [10, 30, 44, 46, 60]) {
+    state.theta = (deg * Math.PI) / 180;
+    const inside = S.cog(body, state).insideBy;
+    const righting = S.moments(body, state, 0, true).righting;
+    // the righting moment is just the weight times that horizontal offset
+    near(righting, body.weight * inside, 1e-9, `${deg} deg`);
+    assert.equal(inside > 0, righting > 0, `${deg} deg: signs should agree`);
+  }
+});
+
+test('the lift to the balance point is the energy-to-tip figure', () => {
+  const result = P.solve(baseline);
+  const body = S.makeBody(result);
+  const c = S.cog(body, S.makeState());
+  near(body.weight * c.riseToBalance, result.chosen.energyToTip, 1e-9);
+});

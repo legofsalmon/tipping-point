@@ -720,6 +720,24 @@ button:active {
   color: var(--ok);
 }
 
+/* the centre-of-gravity readout under the status line */
+.sim-cog {
+  margin: 5px 0 0;
+  font-size: 0.83rem;
+  color: var(--muted);
+  min-height: 1.4em;
+}
+
+.sim-cog .qty {
+  font-variant-numeric: tabular-nums;
+  font-weight: 620;
+  color: var(--accent);
+}
+
+.sim-cog.is-over .qty {
+  color: var(--force);
+}
+
 /* moment balance bars */
 
 .balance {

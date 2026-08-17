@@ -233,6 +233,30 @@ into every upright, which wants checking separately. Guy lines, rear rakers,
 outriggers and tying into a building all change the answer — usually for the
 better — and none of them are modelled.
 
+### The centre of gravity, and the thing that actually moves
+
+Worth being precise about, because it is easy to expect the wrong thing. The
+centre of gravity is a **material point fixed in the object** — it never leaves
+it, however far the thing rotates. What it does is swing round the pivot on a
+fixed radius, rising as the object tips and reaching its highest point exactly at
+the balance angle. That peak is why tipping costs energy, and why everything
+after it is free.
+
+The thing that moves *relative to the base* is the **plumb line** hanging from
+it, and that is the whole test:
+
+| | Plumb line lands | The weight is |
+| --- | --- | --- |
+| Upright | a full lever arm inside the pivot | holding it down |
+| At the balance angle | exactly on the pivot | doing nothing |
+| Past it | outside the pivot | pulling it over |
+
+The simulation draws that plumb line, marks where it lands, and dimensions the
+gap to the pivot — blue while it is inside, orange the moment it crosses. The
+horizontal offset it reports *is* the righting lever arm: `righting moment =
+weight × that offset`, which the tests check directly against the moment
+calculation.
+
 ### Pushing it for real
 
 The static formula says whether it goes; the simulation says what happens next.
