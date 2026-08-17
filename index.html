@@ -427,6 +427,11 @@
           <fieldset class="led-only">
             <legend>Baseplates and ballast</legend>
 
+            <label class="check">
+              <input type="checkbox" id="trussCentred" />
+              <span>Truss centred on the baseplate</span>
+            </label>
+
             <div class="field">
               <label for="plateFront">Reach in front of the truss</label>
               <div class="input-row">
@@ -444,6 +449,7 @@
                 <input id="plateBack" type="number" inputmode="decimal" step="any" min="0" />
                 <select id="plateBack-unit" class="unit" data-units="length" aria-label="Rear reach unit"></select>
               </div>
+              <p class="hint" id="plate-depth-hint"></p>
             </div>
 
             <div class="field">

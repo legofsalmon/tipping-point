@@ -167,6 +167,14 @@ structure is being pulled over before any wind arrives. The reach in front of
 the truss is the single most valuable number in the whole calculation, and it is
 usually the one you have least room for — the wall is in the way.
 
+The two reaches are entered separately, with a checkbox to centre the truss and
+mirror them. Worth knowing which way to spend a given footprint: on the
+reference wall, a 1 m plate centred on the truss wants **9 uprights**, while the
+same 1 m split 400 mm forward / 600 mm back does better — because reaching
+forward lengthens the arm that resists the governing case, whereas reaching back
+only helps the case that already has margin to spare. The default, 500 forward
+and 1 m back, wants 6.
+
 **Wind is what decides it**, and the two directions are not symmetric:
 
 | | Tips about | The wall's own weight |

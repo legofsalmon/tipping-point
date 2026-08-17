@@ -492,3 +492,41 @@ test('a geometry no number of uprights can fix is not buildable either', () => {
   });
   assert.equal(r.buildable, false);
 });
+
+/* ---------------------------- a centred truss -------------------------- */
+
+test('a truss centred on its baseplate puts the plate centroid on the axis', () => {
+  const L = W.layout({ ...baseline, plateFront: 0.5, plateBack: 0.5 });
+  near(L.plateDepth, 1);
+  near(L.plateCentroidX, 0); // symmetric, so the centroid is on the truss axis
+  near(L.ballastX, 0); // and so is the ballast, by default
+
+  // every part then has the same lever arm about the front edge: the reach
+  const m = W.moments(L, 6, 0, 1);
+  const arm = (name) => m.items.find((i) => i.name === name).arm;
+  near(arm('truss'), 0.5);
+  near(arm('baseplate'), 0.5);
+  near(arm('ballast'), 0.5);
+});
+
+test('centring costs uprights, because the rear ballast loses its lever arm', () => {
+  /* Same reach in front, but the plate no longer runs back past the truss, so
+   * the plate and ballast arms drop from 0.75 m to 0.5 m:
+   *   per upright = (39 + 60 + 300) x g x 0.5           = 1956.43
+   *   n >= (21677.91 - 5687.86) / 1956.43 = 8.17        -> 9
+   */
+  const centred = W.solve({ ...baseline, plateFront: 0.5, plateBack: 0.5 });
+  const offCentre = W.solve(baseline);
+
+  assert.equal(centred.byCase.forward.uprightsNeeded, 9);
+  assert.equal(centred.uprights, 9);
+  assert.ok(centred.uprights > offCentre.uprights);
+
+  // the same total depth set back instead does better for the same footprint
+  const setBack = W.solve({ ...baseline, plateFront: 0.4, plateBack: 0.6 });
+  near(setBack.layout.plateDepth, centred.layout.plateDepth);
+  assert.ok(
+    setBack.byCase.forward.moments.ratio < centred.byCase.forward.moments.ratio,
+    'reaching forward matters more than reaching back, for the same depth'
+  );
+});

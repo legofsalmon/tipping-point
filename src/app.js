@@ -343,6 +343,7 @@
     p.set('slide', $('checkSliding').checked ? '1' : '0');
     p.set('fu', $('force-unit').value);
     p.set('back', $('ballastAtBack').checked ? '1' : '0');
+    p.set('ctr', $('trussCentred').checked ? '1' : '0');
     if ($('uprightsOverride').value) p.set('nup', $('uprightsOverride').value);
     return p.toString();
   }
@@ -379,6 +380,7 @@
     });
 
     if (p.has('back')) $('ballastAtBack').checked = p.get('back') === '1';
+    if (p.has('ctr')) $('trussCentred').checked = p.get('ctr') === '1';
     if (p.has('nup')) $('uprightsOverride').value = p.get('nup');
     if (p.has('dir')) setChecked('pushDirection', p.get('dir'));
     if (p.has('top')) $('pushAtTop').checked = p.get('top') === '1';
@@ -1809,8 +1811,9 @@
       return isFinite(n) && n > 0 ? n : fallback;
     };
 
-    var plateBack = v('plateBack');
     var plateFront = v('plateFront');
+    // centred means the plate reaches as far behind the truss as in front
+    var plateBack = $('trussCentred').checked ? plateFront : v('plateBack');
     var state = {
       wallWidth: v('wallWidth'),
       wallHeight: v('wallHeight'),
@@ -2475,11 +2478,28 @@
   }
 
   function updateLed() {
+    var centred = $('trussCentred').checked;
+    $('plateBack').disabled = centred;
+    $('plateBack-unit').disabled = centred;
+
     var state = readLedState();
     var result = LW.solve(state);
     lastLed = result;
 
     renderLed(result);
+
+    /* With the truss centred, show what the mirrored figure works out to
+     * rather than leaving a stale number in the disabled field. */
+    if (centred) setFieldBase(fieldById('plateBack'), state.plateFront);
+
+    var L0 = result.layout;
+    var offset = Math.abs(L0.plateCentroidX);
+    $('plate-depth-hint').textContent = L0.plateDepth > 0
+      ? fmtLength(L0.plateDepth) + ' deep overall' +
+        (offset > 1e-6
+          ? ', with the truss ' + fmtLength(offset) + ' forward of the plate\u2019s centre'
+          : ', truss on the centre')
+      : '';
 
     // running totals that belong next to the inputs
     $('wall-total-hint').textContent = result.layout.wallMass > 0
@@ -2631,6 +2651,7 @@
       }
     );
 
+    $('trussCentred').addEventListener('change', update);
     $('ballastAtBack').addEventListener('change', update);
     $('uprightsOverride').addEventListener('input', update);
 
