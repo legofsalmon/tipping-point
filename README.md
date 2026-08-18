@@ -634,6 +634,31 @@ Any static host works. For GitHub Pages:
 to `main`. Until Pages is enabled in the settings that workflow will fail — the
 step that fails is `configure-pages`, and nothing else is affected.
 
+### Vercel
+
+Import the repository and deploy — there is nothing to configure in the
+dashboard. `vercel.json` covers it:
+
+- **No build.** The site is the repository root as it stands. `npm run build`
+  makes the single-file offline copy in `dist/`, which is a thing to hand
+  someone rather than the site, so Vercel is told not to run it.
+- **`sw.js` and the shell revalidate on every request.** A cache-first service
+  worker behind an over-cached `sw.js` is the usual way a PWA gets stuck on a
+  version from a fortnight ago. Browsers honour `max-age` on a worker script for
+  up to 24 hours, so it is pinned to `max-age=0, must-revalidate`.
+- **`cleanUrls` is deliberately off.** It would 308 `/index.html` to `/`, and the
+  service worker caches both — `cache.add()` on a redirected response is not
+  reliably allowed, so the shell would quietly stop being cached under one of its
+  two names.
+
+`.vercelignore` keeps `test/`, `tools/` and `.github/` out of the deployment. The
+twelve files the app actually asks for are `index.html`, `src/*`, `icons/*`,
+`manifest.webmanifest` and `sw.js`, all of which stay.
+
+Note that Vercel deploys its **production branch** (`main` by default) to the
+live domain, and every other branch to a preview URL. Work sitting on a feature
+branch gets a preview link, not the domain.
+
 ---
 
 ## Layout

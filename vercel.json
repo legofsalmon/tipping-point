@@ -1,0 +1,46 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+
+  "//": "The site is the repository root, served as plain static files — there is nothing to build. `npm run build` makes the single-file offline copy in dist/, which is a distribution artifact rather than the site, so Vercel is told not to run it.",
+
+  "framework": null,
+  "buildCommand": "echo 'static site — nothing to build'",
+  "outputDirectory": ".",
+
+  "headers": [
+    {
+      "//": "A cache-first service worker plus an over-cached sw.js is the classic way a PWA gets stuck on an old version. Browsers will honour max-age on the worker script for up to 24 hours, so revalidate it every time.",
+      "source": "/sw.js",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" },
+        { "key": "Service-Worker-Allowed", "value": "/" }
+      ]
+    },
+    {
+      "//": "Same reasoning for the shell: app.js looking for a form field that a stale index.html does not have is a blank page, not a graceful degradation.",
+      "source": "/index.html",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }
+      ]
+    },
+    {
+      "source": "/",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }
+      ]
+    },
+    {
+      "source": "/manifest.webmanifest",
+      "headers": [
+        { "key": "Content-Type", "value": "application/manifest+json; charset=utf-8" }
+      ]
+    },
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" }
+      ]
+    }
+  ]
+}

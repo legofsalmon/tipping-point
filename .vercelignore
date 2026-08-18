@@ -1,0 +1,5 @@
+# The tests and the build tools are not part of the site.
+test/
+tools/
+.github/
+dist/
