@@ -637,7 +637,9 @@ step that fails is `configure-pages`, and nothing else is affected.
 ### Vercel
 
 Import the repository and deploy — there is nothing to configure in the
-dashboard. `vercel.json` covers it:
+dashboard. `vercel.json` covers it, and note that its schema sets
+`additionalProperties: false`, so a `"//"` key of the sort `package.json`
+tolerates fails the build outright. That is why the reasoning lives here instead:
 
 - **No build.** The site is the repository root as it stands. `npm run build`
   makes the single-file offline copy in `dist/`, which is a thing to hand
@@ -654,6 +656,13 @@ dashboard. `vercel.json` covers it:
 `.vercelignore` keeps `test/`, `tools/` and `.github/` out of the deployment. The
 twelve files the app actually asks for are `index.html`, `src/*`, `icons/*`,
 `manifest.webmanifest` and `sw.js`, all of which stay.
+
+To check a change to `vercel.json` before pushing it, validate against the
+published schema rather than trusting the field names:
+
+```sh
+curl -sS -o /tmp/vercel-schema.json https://openapi.vercel.sh/vercel.json
+```
 
 Note that Vercel deploys its **production branch** (`main` by default) to the
 live domain, and every other branch to a preview URL. Work sitting on a feature
