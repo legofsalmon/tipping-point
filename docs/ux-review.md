@@ -56,7 +56,13 @@ Contrast, computed from rendered values:
 | Answer note, 14.1 px | 5.98:1 | 6.78:1 | 4.5 |
 | Simulator status, 14.4 px | 18.15:1 | 14.46:1 | 4.5 |
 | Diagram labels, 10.5 px | 17.34:1 | 13.54:1 | 4.5 |
-| **Pass/fail badge, 13.1 px** | **4.16:1 — fails** | 9.95:1 | 4.5 |
+| **Pass/fail badge, 13.1 px** | 4.15:1 — was failing, now 4.93:1 | 6.39:1 | 4.5 |
+
+A note on that table: the probe that produced it could not parse the
+`color(srgb ...)` values Chromium computes for `color-mix()`, and silently
+returned nonsense for those rows. The badge figures above are the corrected
+ones. The dark badge was recorded as 9.95:1 and is really 6.39:1 — passing
+either way, but the number was wrong.
 
 Other measured facts:
 
@@ -74,30 +80,30 @@ Other measured facts:
 
 ## An afternoon — credibility
 
-- [ ] **Blank field is read as zero.** `src/app.js:296` turns anything
+- [x] **Blank field is read as zero.** `src/app.js:296` turns anything
       unparseable into `0`, so "not told yet" and "deliberately nothing" are the
       same input. Clearing the baseplate weight moves the headline from 40.94 to
       11.7 with no warning shown. Treat blank as absent: hold the answer, name the
       field. Pole mode only errors when *both* masses are empty
       (`src/physics.js:293`).
-- [ ] **Four significant figures on a first-pass estimate.** `40.94 N`, `2.012 m`.
+- [x] **Four significant figures on a first-pass estimate.** `40.94 N`, `2.012 m`.
       Three at most in the headline; round setting-out dimensions to something a
       tape can find.
-- [ ] **The headline has lost its unit.** A 68 px figure with the unit beside it in
+- [x] **The headline has lost its unit.** A 68 px figure with the unit beside it in
       a bordered `<select>` (`index.html:49-51`). Set the unit as type right after
       the number and make it a quiet control — the LED side already does this
       ("6 uprights") and reads better.
-- [ ] **Reset is destructive, unconfirmed, unrecoverable.** Took a pole length of 9
+- [x] **Reset is destructive, unconfirmed, unrecoverable.** Took a pole length of 9
       back to 2 with no dialogue. Offer "Undo reset" for a while rather than a
       confirmation.
-- [ ] **Share link carries both modes.** 391 characters, 43 parameters; sharing an
+- [x] **Share link carries both modes.** 391 characters, 43 parameters; sharing an
       LED wall sends all ten pole parameters too. Serialise the active mode only,
       and only fields differing from defaults (`serialize()` in `src/app.js`).
-- [ ] **Pass badge fails contrast in light mode** (4.16:1). Darken until it clears
+- [x] **Pass badge fails contrast in light mode** (4.16:1). Darken until it clears
       4.5:1. It is the one element that says whether the thing stands up.
-- [ ] **Touch targets.** Pad checkbox rows and the slider to 44 px. Primary user is
+- [x] **Touch targets.** Pad checkbox rows and the slider to 44 px. Primary user is
       outdoors, on a phone, possibly in gloves.
-- [ ] **The fall ends badly.** Drop the centre-of-gravity marker, plumb line,
+- [x] **The fall ends badly.** Drop the centre-of-gravity marker, plumb line,
       dimension arrows and force arrow the moment it lands — one condition in
       `drawSim()`, and the end of the fall stops looking like a bug.
 

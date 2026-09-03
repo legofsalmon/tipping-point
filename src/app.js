@@ -159,6 +159,24 @@
     return fmt(P.fromBase(newtons, unit, P.FORCE_UNITS)) + ' ' + unit;
   }
 
+  /**
+   * Significant figures, for numbers the app has no business stating precisely.
+   *
+   * The headline is a first pass against a force coefficient somebody picked to
+   * one decimal place, so a fourth figure is a promise the maths cannot keep —
+   * and unearned precision reads as false confidence to exactly the people who
+   * most need to trust the answer.
+   */
+  function fmtSig(n, sig) {
+    if (n == null || !isFinite(n)) return '—';
+    if (n === 0) return '0';
+    var s = sig || 3;
+    var mag = Math.floor(Math.log10(Math.abs(n)));
+    var dp = Math.max(0, s - 1 - mag);
+    var factor = Math.pow(10, dp);
+    return fmt(Math.round(n * factor) / factor, dp);
+  }
+
   function fmtMoment(nm) {
     if (!isFinite(nm)) return '—';
     if (currentSystem === 'imperial') {
@@ -297,6 +315,72 @@
     return P.toBase(raw, unitOverride || unitSelect(field).value, UNIT_TABLES[field.kind]);
   }
 
+  /**
+   * Fields left empty, as distinct from fields deliberately set to zero.
+   *
+   * `parseFloat("")` is NaN and `parseFloat("0")` is 0, and the two only become
+   * the same number once a blank has been quietly turned into one — which is
+   * the thing worth avoiding. A wall with no panel weight entered is not a
+   * weightless wall; it is a question nobody has answered yet, and answering it
+   * anyway with a confident figure is the one way this app can be untruthful.
+   *
+   * Hidden and disabled inputs are none of our business: the other mode's
+   * fields, and the ones the app fills in itself.
+   */
+  function blankFields(fields) {
+    return fields.filter(function (field) {
+      var input = $(field.id);
+      if (!input || input.disabled || input.offsetParent === null) return false;
+      return !isFinite(parseFloat(input.value));
+    });
+  }
+
+  /* Labels that mean nothing on their own — there are four "Weight" fields on
+   * the LED screen — take their fieldset's legend with them. */
+  var GENERIC_LABELS = /^(weight|length|width|height|thickness|depth)$/i;
+
+  function fieldLabel(field) {
+    var el = document.querySelector('label[for="' + field.id + '"]');
+    var text = el ? el.textContent.trim() : field.id;
+    if (GENERIC_LABELS.test(text)) {
+      var set = el && el.closest ? el.closest('fieldset') : null;
+      var legend = set ? set.querySelector('legend') : null;
+      if (legend) text = legend.textContent.trim() + ' ' + text.toLowerCase();
+    }
+    return text.charAt(0).toLowerCase() + text.slice(1);
+  }
+
+  /** Turns any blanks into the same kind of message the solvers produce. */
+  function blankError(fields) {
+    var missing = blankFields(fields).map(fieldLabel);
+    if (!missing.length) return null;
+    if (missing.length === 1) return 'Enter the ' + missing[0] + '.';
+    return 'Enter the ' + missing.slice(0, -1).join(', the ') + ' and the ' +
+      missing[missing.length - 1] + '.';
+  }
+
+  /**
+   * Adds them to a result so they travel the same path as a real error.
+   *
+   * The solvers already refuse to answer when a field they cannot do without
+   * is zero, and a blank reads as zero on the way in, so for those fields the
+   * two messages would arrive together saying the same thing. Duplicates are
+   * dropped rather than special-cased: this check earns its keep on the fields
+   * where zero is a legitimate answer and blank is not.
+   */
+  function holdForBlanks(result, fields) {
+    var message = blankError(fields);
+    if (message) {
+      result.ok = false;
+      result.errors = [message].concat(result.errors || []).filter(
+        function (text, i, all) {
+          return all.indexOf(text) === i;
+        }
+      );
+    }
+    return result;
+  }
+
   function setFieldBase(field, baseValue) {
     var input = $(field.id);
     input.value = tidy(P.fromBase(baseValue, unitSelect(field).value, UNIT_TABLES[field.kind]));
@@ -370,24 +454,53 @@
    * Persistence: localStorage and the URL hash
    * ------------------------------------------------------------------ */
 
+  /**
+   * Only what the recipient needs: the mode in play, and the fields that differ
+   * from the defaults they will open on.
+   *
+   * Sharing an LED wall used to send all ten pole parameters with it, plus
+   * every untouched default — 43 parameters and 391 characters, almost none of
+   * it about the thing being shared. Anything omitted simply stays at its
+   * default at the other end, which is what it was here.
+   */
   function serialize() {
     var p = new URLSearchParams();
+    var led = currentMode === 'led';
     p.set('mode', currentMode);
     p.set('sys', currentSystem);
-    ALL_FIELDS.forEach(function (field) {
-      p.set(field.key, $(field.id).value + unitSelect(field).value);
+
+    (led ? LED_FIELDS : FIELDS).forEach(function (field) {
+      var shown = $(field.id).value + unitSelect(field).value;
+      var def = field[currentSystem];
+      if (shown === String(def[0]) + def[1]) return;
+      p.set(field.key, shown);
     });
-    ALL_SCALARS.forEach(function (s) {
+
+    (led ? LED_SCALARS : SCALARS).forEach(function (s) {
+      if (parseFloat($(s.id).value) === s.def) return;
       p.set(s.key, $(s.id).value);
     });
-    p.set('dir', checkedValue('pushDirection') || 'width');
-    p.set('top', $('pushAtTop').checked ? '1' : '0');
-    p.set('slide', $('checkSliding').checked ? '1' : '0');
-    p.set('fu', $('force-unit').value);
-    p.set('back', $('ballastAtBack').checked ? '1' : '0');
-    p.set('ctr', $('trussCentred').checked ? '1' : '0');
-    p.set('wog', $('wallOnGround').checked ? '1' : '0');
-    if ($('uprightsOverride').value) p.set('nup', $('uprightsOverride').value);
+
+    /* defaultChecked is whatever the markup shipped with, so this stays right
+     * without a second list of defaults to keep in step. */
+    var flag = function (key, id) {
+      var el = $(id);
+      if (el.checked !== el.defaultChecked) p.set(key, el.checked ? '1' : '0');
+    };
+
+    if (led) {
+      flag('back', 'ballastAtBack');
+      flag('ctr', 'trussCentred');
+      flag('wog', 'wallOnGround');
+      if ($('uprightsOverride').value) p.set('nup', $('uprightsOverride').value);
+    } else {
+      var dir = checkedValue('pushDirection') || 'width';
+      if (dir !== 'width') p.set('dir', dir);
+      flag('top', 'pushAtTop');
+      flag('slide', 'checkSliding');
+    }
+
+    if ($('force-unit').value !== 'N') p.set('fu', $('force-unit').value);
     return p.toString();
   }
 
@@ -1248,76 +1361,82 @@
      * things is the plumb line hanging from it: while that lands inside the
      * pivot the weight holds the object down, and the instant it lands outside,
      * the same weight is pulling it over. */
-    var cg = bodyPoint(view, b.cgPoint.x, b.cgPoint.y);
-    ctx.strokeStyle = c.accent;
-    ctx.globalAlpha = 0.35;
-    ctx.lineWidth = 1.2;
-    ctx.beginPath();
-    ctx.moveTo(pivot.x, pivot.y);
-    ctx.lineTo(cg.x, cg.y);
-    ctx.stroke();
-    ctx.globalAlpha = 1;
-
-    var cogNow = S.cog(b, st);
-    var inside = cogNow.insideBy >= 0;
-    var plumbColour = inside ? c.accent : c.force;
-    var landX = view.sx(cogNow.x + st.slide);
-
-    ctx.save();
-    ctx.setLineDash([5, 4]);
-    ctx.strokeStyle = plumbColour;
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.moveTo(cg.x, cg.y);
-    ctx.lineTo(landX, view.groundY);
-    ctx.stroke();
-    ctx.restore();
-
-    // where the weight lands, and how that compares with the pivot
-    ctx.fillStyle = plumbColour;
-    ctx.beginPath();
-    ctx.moveTo(landX, view.groundY);
-    ctx.lineTo(landX - 5, view.groundY - 8);
-    ctx.lineTo(landX + 5, view.groundY - 8);
-    ctx.closePath();
-    ctx.fill();
-
-    var gapY = view.groundY + 15;
-    if (Math.abs(landX - pivot.x) > 3) {
-      ctx.strokeStyle = plumbColour;
+    /* Measurement chrome belongs on something still standing. Once it is down,
+     * the centre-of-gravity marker, its radius line, the plumb line and the
+     * gap dimension are all answering a question that has been settled — and
+     * drawn over a wreck they read as debris rather than instrumentation. */
+    if (!st.fallen) {
+      var cg = bodyPoint(view, b.cgPoint.x, b.cgPoint.y);
+      ctx.strokeStyle = c.accent;
+      ctx.globalAlpha = 0.35;
       ctx.lineWidth = 1.2;
       ctx.beginPath();
-      ctx.moveTo(landX, gapY);
-      ctx.lineTo(pivot.x, gapY);
+      ctx.moveTo(pivot.x, pivot.y);
+      ctx.lineTo(cg.x, cg.y);
       ctx.stroke();
-      [landX, pivot.x].forEach(function (x) {
-        ctx.beginPath();
-        ctx.moveTo(x, gapY - 3.5);
-        ctx.lineTo(x, gapY + 3.5);
-        ctx.stroke();
-      });
-    }
+      ctx.globalAlpha = 1;
 
-    // centre of mass marker
-    var rad = 7;
-    ctx.beginPath();
-    ctx.arc(cg.x, cg.y, rad, 0, Math.PI * 2);
-    ctx.fillStyle = c.surface;
-    ctx.fill();
-    ctx.strokeStyle = c.text;
-    ctx.lineWidth = 1.2;
-    ctx.stroke();
-    ctx.fillStyle = c.text;
-    ctx.beginPath();
-    ctx.moveTo(cg.x, cg.y);
-    ctx.arc(cg.x, cg.y, rad, -Math.PI / 2, 0);
-    ctx.closePath();
-    ctx.fill();
-    ctx.beginPath();
-    ctx.moveTo(cg.x, cg.y);
-    ctx.arc(cg.x, cg.y, rad, Math.PI / 2, Math.PI);
-    ctx.closePath();
-    ctx.fill();
+      var cogNow = S.cog(b, st);
+      var inside = cogNow.insideBy >= 0;
+      var plumbColour = inside ? c.accent : c.force;
+      var landX = view.sx(cogNow.x + st.slide);
+
+      ctx.save();
+      ctx.setLineDash([5, 4]);
+      ctx.strokeStyle = plumbColour;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(cg.x, cg.y);
+      ctx.lineTo(landX, view.groundY);
+      ctx.stroke();
+      ctx.restore();
+
+      // where the weight lands, and how that compares with the pivot
+      ctx.fillStyle = plumbColour;
+      ctx.beginPath();
+      ctx.moveTo(landX, view.groundY);
+      ctx.lineTo(landX - 5, view.groundY - 8);
+      ctx.lineTo(landX + 5, view.groundY - 8);
+      ctx.closePath();
+      ctx.fill();
+
+      var gapY = view.groundY + 15;
+      if (Math.abs(landX - pivot.x) > 3) {
+        ctx.strokeStyle = plumbColour;
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.moveTo(landX, gapY);
+        ctx.lineTo(pivot.x, gapY);
+        ctx.stroke();
+        [landX, pivot.x].forEach(function (x) {
+          ctx.beginPath();
+          ctx.moveTo(x, gapY - 3.5);
+          ctx.lineTo(x, gapY + 3.5);
+          ctx.stroke();
+        });
+      }
+
+      // centre of mass marker
+      var rad = 7;
+      ctx.beginPath();
+      ctx.arc(cg.x, cg.y, rad, 0, Math.PI * 2);
+      ctx.fillStyle = c.surface;
+      ctx.fill();
+      ctx.strokeStyle = c.text;
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
+      ctx.fillStyle = c.text;
+      ctx.beginPath();
+      ctx.moveTo(cg.x, cg.y);
+      ctx.arc(cg.x, cg.y, rad, -Math.PI / 2, 0);
+      ctx.closePath();
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(cg.x, cg.y);
+      ctx.arc(cg.x, cg.y, rad, Math.PI / 2, Math.PI);
+      ctx.closePath();
+      ctx.fill();
+    }
 
     // pivot
     ctx.fillStyle = c.force;
@@ -1330,7 +1449,7 @@
 
     /* the push itself */
     var push = bodyPoint(view, b.pushPoint.x, b.pushPoint.y);
-    if (force > 0) {
+    if (force > 0 && !st.fallen) {
       var thetaP = b.pushAngleRad;
       var lead = 22 + 52 * Math.min(1, force / (sim.maxForce * 1.6));
       arrow(
@@ -1691,7 +1810,7 @@
     }
 
     $('out-force').textContent = isFinite(chosen.tipForce)
-      ? fmt(P.fromBase(chosen.tipForce, forceUnit, P.FORCE_UNITS))
+      ? fmtSig(P.fromBase(chosen.tipForce, forceUnit, P.FORCE_UNITS))
       : '—';
 
     $('out-force-note').textContent = isFinite(chosen.tipForce)
@@ -2913,7 +3032,7 @@
     $('friction-preset').disabled = !frictionOn;
 
     var state = readState();
-    var result = P.solve(state);
+    var result = holdForBlanks(P.solve(state), FIELDS);
     lastResult = result;
 
     // when the push is pinned to the top of the pole, show what that height is
@@ -2950,7 +3069,7 @@
     $('plateBack-unit').disabled = centred;
 
     var state = readLedState();
-    var result = LW.solve(state);
+    var result = holdForBlanks(LW.solve(state), LED_FIELDS);
     lastLed = result;
 
     renderLed(result);
@@ -3130,14 +3249,33 @@
 
   var toastTimer = null;
 
-  function toast(message) {
+  /**
+   * A message, optionally with something to do about it.
+   *
+   * An action gets a longer dwell — an undo you cannot reach in time is not an
+   * undo — and is the reason Reset needs no confirmation dialogue: it is
+   * cheaper to build and much better to use than being asked twice.
+   */
+  function toast(message, action) {
     var el = $('toast');
     el.textContent = message;
+    if (action) {
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'toast-action';
+      btn.textContent = action.label;
+      btn.addEventListener('click', function () {
+        clearTimeout(toastTimer);
+        el.classList.remove('is-shown');
+        action.run();
+      });
+      el.appendChild(btn);
+    }
     el.classList.add('is-shown');
     clearTimeout(toastTimer);
     toastTimer = setTimeout(function () {
       el.classList.remove('is-shown');
-    }, 2200);
+    }, action ? 9000 : 2200);
   }
 
   function copyText(str, okMessage) {
@@ -3265,11 +3403,24 @@
     });
 
     $('btn-reset').addEventListener('click', function () {
+      /* Captured before anything is cleared: a short query that puts every
+       * field back exactly where it was, since defaults are what it is
+       * measured against and defaults are what a reset lands on. */
+      var before = serialize();
       applyDefaults(currentSystem);
       if (location.hash) history.replaceState(null, '', location.pathname + location.search);
       update();
       resetSim();
-      toast('Back to the example');
+      toast('Back to the example', {
+        label: 'Undo',
+        run: function () {
+          deserialize(before);
+          applyModeChrome();
+          update();
+          resetSim();
+          toast('Put back');
+        }
+      });
     });
 
     $('btn-share').addEventListener('click', function () {

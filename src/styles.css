@@ -17,7 +17,9 @@
   --on-accent: #ffffff;
   --force: #d94f0a;
   --force-soft: #fdecdf;
-  --ok: #15803d;
+  /* Dark enough to clear 4.5:1 against its own 14% tint, which is what the
+   * pass badge sits on. #15803d measured 4.16:1 there. */
+  --ok: #12722f;
   --warn: #a35a00;
   --warn-soft: #fdf3e2;
   --bad: #b3261e;
@@ -241,11 +243,30 @@ body[data-mode="led"] .pole-only {
   color: var(--force);
 }
 
+/* The unit belongs to the number, not to the panel. It sits immediately after
+ * the figure and is set as type, so the answer reads as one phrase — "40.9 N"
+ * — rather than as a number with a form control parked beside it. It is still
+ * a control: the caret stays, and hovering or focusing gives it its edges
+ * back. Padding does not change between states, so nothing shifts. */
 .answer-figure .unit-pick {
-  margin-left: auto;
   width: auto;
   flex: 0 0 auto;
-  min-width: 96px;
+  min-width: 0;
+  min-height: 0;
+  align-self: baseline;
+  font-size: 1.1rem;
+  font-weight: 560;
+  color: var(--muted);
+  background-color: transparent;
+  border-color: transparent;
+  padding: 2px 22px 2px 6px;
+  background-position: right 8px center, right 3px center;
+}
+
+.answer-figure .unit-pick:hover,
+.answer-figure .unit-pick:focus-visible {
+  background-color: var(--surface-2);
+  border-color: var(--border-strong);
 }
 
 .answer-figure .answer-unit {
@@ -488,6 +509,9 @@ select:disabled {
   color: var(--muted);
 }
 
+/* The whole row is the target, not the 20 px box. Padded to 44 px so it can be
+ * hit outdoors, on a phone, in gloves — which is where this app is used. The
+ * negative margin keeps the extra padding from moving anything. */
 .check {
   display: flex;
   align-items: flex-start;
@@ -495,13 +519,18 @@ select:disabled {
   font-size: 0.87rem;
   margin-bottom: 9px;
   cursor: pointer;
+  min-height: 44px;
+  align-items: center;
+  padding: 4px 0;
+  margin-left: -4px;
+  padding-left: 4px;
 }
 
 .check input {
   width: 20px;
   height: 20px;
   min-height: 0;
-  margin: 2px 0 0;
+  margin: 0;
   flex: 0 0 auto;
   accent-color: var(--accent);
   cursor: pointer;
@@ -870,7 +899,8 @@ input[type="range"] {
   width: 100%;
   margin: 0;
   accent-color: var(--force);
-  height: 26px;
+  /* 44 px of grabbable height; the track itself still draws thin. */
+  height: 44px;
 }
 
 .sim-buttons {
@@ -1199,6 +1229,26 @@ details.notes-block li {
   font-size: 0.78rem;
   color: var(--muted);
   text-align: center;
+}
+
+/* The toast stays click-through so it never blocks the page under it; only
+ * the button inside it takes presses. */
+.toast-action {
+  pointer-events: auto;
+  margin-left: 12px;
+  padding: 4px 10px;
+  min-height: 0;
+  font: inherit;
+  font-weight: 640;
+  color: inherit;
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.toast-action:hover {
+  background: rgba(255, 255, 255, 0.26);
 }
 
 .toast {
