@@ -17,7 +17,23 @@ import { fileURLToPath } from 'node:url';
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (rel) => readFileSync(join(ROOT, rel), 'utf8');
 
-const css = read('src/styles.css');
+/* The stylesheet points at the font file beside it, which is no use to a copy
+ * of this page sitting on its own in someone's downloads folder. Inlined as a
+ * data URI so the single file carries its own typography — about 47 KB of
+ * base64, against a page that would otherwise silently fall back to whatever
+ * form font the reader's operating system uses. */
+const FONT = 'fonts/archivo-var-latin.woff2';
+
+function inlineFont(sheet) {
+  const url = /url\(["']?\.\.\/fonts\/archivo-var-latin\.woff2["']?\)/;
+  if (!url.test(sheet)) {
+    throw new Error('no font url found in the stylesheet — has the @font-face moved?');
+  }
+  const data = readFileSync(join(ROOT, FONT)).toString('base64');
+  return sheet.replace(url, `url("data:font/woff2;base64,${data}")`);
+}
+
+const css = inlineFont(read('src/styles.css'));
 const SCRIPTS = ['src/physics.js', 'src/ledwall.js', 'src/sim.js', 'src/app.js'];
 
 /* A closing </script> anywhere inside inline JS would end the block early.

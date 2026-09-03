@@ -109,24 +109,29 @@ Other measured facts:
 
 ## A weekend — feel
 
-- [ ] **Give it a typeface.** `--font` is the system UI stack, so everyone sees
+- [x] **Give it a typeface.** Archivo, vendored as a 35 KB variable woff2 rather than linked — a webfont from someone else's server would be the one part of an offline-first app that needs the internet. Cached by the service worker and inlined as a data URI in the single-file build. `--font` is the system UI stack, so everyone sees
       their OS's form font. The palette is already considered; typography is the
       missing half of the identity.
-- [ ] **Reorder the panels:** object and simulator first, answer docked to them.
+- [x] **Reorder the panels:** object and simulator first, answer docked to them.
       Currently answer → simulator → inputs.
-- [ ] **A slim answer bar on phones** — figure, unit, badge, one line, docked where
+- [x] **A slim answer bar on phones** — figure, unit, badge, one line, docked where
       it cannot fight the canvas. `src/styles.css` carries a comment explaining the
       answer panel was un-stuck because it swallowed canvas pointer events; this is
       what that attempt was reaching for.
-- [ ] **The threshold moment.** Mark the instant the plumb line crosses the pivot.
+- [x] **The threshold moment.** Mark the instant the plumb line crosses the pivot.
       It is the whole drama and it currently passes as a line of text changing.
-- [ ] **The landing and the aftermath.** Let it lie down and settle; leave the
-      wreck; name what did it; offer *Again*.
-- [ ] **Objects, not dimensions** (pole mode). A row of real things that fill the
+- [~] **The landing and the aftermath.** The chrome now clears on landing, so
+      it stops looking like a bug. Still to do: letting it lie down. The body
+      pivots about the plate's front edge and stops at 90°, hanging one
+      plate-reach above the ground, and going further is a second phase of
+      motion about a different contact — real physics rather than an easing
+      curve. Faking it would be exactly the looseness the app cannot afford, so
+      it is left for a proper go. *Again* not built.
+- [x] **Objects, not dimensions** (pole mode). A row of real things that fill the
       fields: wheelie bin, fridge, vending machine, A-board, patio heater, road
       sign, Christmas tree. The preset pattern already exists — it is applied to
       parameters rather than to things. This is the "expression" half of the brief.
-- [ ] **Hints on focus.** 2,281 characters of grey help shown at once becomes a
+- [ ] **Hints on focus.** Not done. 2,281 characters of grey help shown at once becomes a
       texture. Keep the ones that teach something non-obvious.
 
 ## A fortnight — product

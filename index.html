@@ -38,38 +38,6 @@
       </header>
 
       <main class="layout">
-        <!-- ------------------------------------------------------ answer -->
-        <section class="panel panel--answer" aria-labelledby="answer-heading">
-          <h2 id="answer-heading">
-            <span class="pole-only">Force needed to tip it</span>
-            <span class="led-only">Uprights needed</span>
-          </h2>
-
-          <div class="answer-figure pole-only">
-            <span class="value" id="out-force">—</span>
-            <label class="visually-hidden" for="force-unit">Force unit</label>
-            <select id="force-unit" class="unit unit-pick" data-units="force"></select>
-          </div>
-
-          <div class="pole-only">
-            <p class="answer-note" id="out-force-note" aria-live="polite"></p>
-            <p class="answer-equiv" id="out-force-equiv"></p>
-          </div>
-
-          <div class="led-only">
-            <div class="answer-figure">
-              <span class="value" id="led-count">—</span>
-              <span class="answer-unit" id="led-count-unit">uprights</span>
-            </div>
-            <p class="answer-note" id="led-note" aria-live="polite"></p>
-            <p class="answer-equiv" id="led-governing"></p>
-            <dl class="stats stats--tight" id="led-headline"></dl>
-          </div>
-
-          <div id="out-badge"></div>
-          <ul class="notes" id="out-notes"></ul>
-        </section>
-
         <!-- --------------------------------------------------- simulation -->
         <section class="panel panel--sim" aria-labelledby="sim-heading">
           <h2 id="sim-heading">Give it a push</h2>
@@ -137,6 +105,37 @@
             </label>
           </div>
         </section>
+        <!-- ------------------------------------------------------ answer -->
+        <section class="panel panel--answer" aria-labelledby="answer-heading">
+          <h2 id="answer-heading">
+            <span class="pole-only">Force needed to tip it</span>
+            <span class="led-only">Uprights needed</span>
+          </h2>
+
+          <div class="answer-figure pole-only">
+            <span class="value" id="out-force">—</span>
+            <label class="visually-hidden" for="force-unit">Force unit</label>
+            <select id="force-unit" class="unit unit-pick" data-units="force"></select>
+          </div>
+
+          <div class="pole-only">
+            <p class="answer-note" id="out-force-note" aria-live="polite"></p>
+            <p class="answer-equiv" id="out-force-equiv"></p>
+          </div>
+
+          <div class="led-only">
+            <div class="answer-figure">
+              <span class="value" id="led-count">—</span>
+              <span class="answer-unit" id="led-count-unit">uprights</span>
+            </div>
+            <p class="answer-note" id="led-note" aria-live="polite"></p>
+            <p class="answer-equiv" id="led-governing"></p>
+            <dl class="stats stats--tight" id="led-headline"></dl>
+          </div>
+
+          <div id="out-badge"></div>
+          <ul class="notes" id="out-notes"></ul>
+        </section>
 
         <!-- ------------------------------------------------------ inputs -->
         <section class="panel panel--inputs" aria-labelledby="inputs-heading">
@@ -165,6 +164,14 @@
               <input type="radio" name="unit-system" value="imperial" />
               <span>Imperial</span>
             </label>
+          </div>
+
+          <div class="pole-only presets-block">
+            <p class="presets-label" id="presets-label">Start with something</p>
+            <div class="presets" id="pole-presets" role="group" aria-labelledby="presets-label"></div>
+            <p class="hint">
+              Typical figures for each — change anything you disagree with.
+            </p>
           </div>
 
           <fieldset class="pole-only">
@@ -851,6 +858,12 @@
       <p class="colophon">
         Works offline once loaded. On a phone, use <em>Add to Home Screen</em> to install it.
       </p>
+    </div>
+
+    <div class="mini-answer" id="mini-answer" aria-hidden="true">
+      <span class="mini-value" id="mini-value">—</span>
+      <span class="mini-unit" id="mini-unit"></span>
+      <span class="mini-badge" id="mini-badge"></span>
     </div>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>

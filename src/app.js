@@ -53,6 +53,46 @@
 
   /* LED wall mode. Defaults describe a 10 m x 5 m outdoor wall on 6 m
    * uprights — a plausible small festival screen. */
+  /**
+   * Things people actually want to push over, so the way in is not eleven
+   * number fields.
+   *
+   * Modelled the way the maths is: a footprint on the ground carrying a body
+   * that stands up from it, with the body's weight spread up its height. That
+   * is a fair likeness for a fridge or a cabinet and a rough one for anything
+   * bottom-heavy — a bin full of refuse is worse than this says, a patio
+   * heater with a full bottle worse still. Typical figures, not a data sheet:
+   * every one of them is a field you can then argue with.
+   *
+   * SI throughout — metres and kilograms.
+   */
+  var POLE_PRESETS = [
+    { label: 'Wheelie bin', note: '240 L, full',
+      plateLength: 0.74, plateWidth: 0.58, plateThickness: 0.02, plateMass: 8,
+      poleLength: 1.07, poleMass: 67, topMass: 0 },
+    { label: 'Fridge-freezer', note: 'tall, full',
+      plateLength: 0.65, plateWidth: 0.6, plateThickness: 0.02, plateMass: 10,
+      poleLength: 1.8, poleMass: 70, topMass: 0 },
+    { label: 'Vending machine', note: 'stocked',
+      plateLength: 0.83, plateWidth: 0.89, plateThickness: 0.03, plateMass: 40,
+      poleLength: 1.83, poleMass: 260, topMass: 0 },
+    { label: 'Filing cabinet', note: 'four drawer, full',
+      plateLength: 0.62, plateWidth: 0.47, plateThickness: 0.02, plateMass: 8,
+      poleLength: 1.32, poleMass: 45, topMass: 0 },
+    { label: 'Patio heater', note: 'with a full bottle',
+      plateLength: 0.46, plateWidth: 0.46, plateThickness: 0.02, plateMass: 12,
+      poleLength: 2.2, poleMass: 18, topMass: 4 },
+    { label: 'A-board', note: 'pavement sign',
+      plateLength: 0.7, plateWidth: 0.6, plateThickness: 0.02, plateMass: 3,
+      poleLength: 1, poleMass: 5, topMass: 0 },
+    { label: 'Road sign', note: 'on a post',
+      plateLength: 0.4, plateWidth: 0.4, plateThickness: 0.012, plateMass: 14,
+      poleLength: 2.1, poleMass: 6, topMass: 4 },
+    { label: 'Christmas tree', note: '6 ft, potted',
+      plateLength: 0.45, plateWidth: 0.45, plateThickness: 0.02, plateMass: 12,
+      poleLength: 1.8, poleMass: 14, topMass: 0 }
+  ];
+
   var LED_FIELDS = [
     { id: 'wallWidth', kind: 'length', key: 'ww', metric: [10, 'm'], imperial: [33, 'ft'] },
     { id: 'wallHeight', kind: 'length', key: 'wh', metric: [5, 'm'], imperial: [16, 'ft'] },
@@ -235,11 +275,15 @@
    * it, while 4,817 N hung on its face makes 1,397 N·m holding it down. Ten
    * times smaller, and the opposite sign.
    */
+  /* Whole kilograms once there are enough of them for a fraction to be noise. */
+  function roundKg(kg) {
+    return kg >= 20 ? Math.round(kg) : kg;
+  }
+
   function forceLikeness(newtons, g) {
     if (!isFinite(newtons) || newtons <= 0) return '';
     var kg = newtons / (g || P.G_STANDARD);
-    /* Whole kilograms once there are enough of them for a fraction to be noise. */
-    return 'the same pull as ' + fmtMass(kg >= 20 ? Math.round(kg) : kg) + ' on a line — ' +
+    return 'the same pull as ' + fmtMass(roundKg(kg)) + ' on a line — ' +
       (asHoist(newtons, g) || feelsLike(newtons));
   }
 
@@ -264,6 +308,29 @@
   }
 
   /** Fill the LED-mode preset pickers from the reference tables. */
+  function populatePolePresets() {
+    var host = $('pole-presets');
+    if (!host) return;
+    host.innerHTML = POLE_PRESETS.map(function (o, i) {
+      return '<button type="button" class="preset-chip" data-preset="' + i + '">' +
+        esc(o.label) + '<span>' + esc(o.note) + '</span></button>';
+    }).join('');
+    host.addEventListener('click', function (e) {
+      var btn = e.target.closest ? e.target.closest('[data-preset]') : null;
+      if (!btn) return;
+      var o = POLE_PRESETS[Number(btn.getAttribute('data-preset'))];
+      if (!o) return;
+      ['plateLength', 'plateWidth', 'plateThickness', 'plateMass',
+        'poleLength', 'poleMass', 'topMass'].forEach(function (id) {
+        setFieldBase(fieldById(id), o[id]);
+      });
+      $('pushAtTop').checked = true;
+      update();
+      resetSim();
+      toast(o.label + ' — push it over');
+    });
+  }
+
   function populateLedPresets() {
     var fill = function (id, items, format) {
       var sel = $(id);
@@ -932,6 +999,7 @@
     dragForce: null, // set while a pointer is dragging
     dragPoint: null, // { x, y } in canvas pixels, for the rubber band
     maxForce: 1,
+    crossedAt: 0, // when it last passed the point of no return, for the flash
     load: null, // LED mode: where the load acts and at what angle
     lastStatus: '',
     palette: null,
@@ -961,6 +1029,13 @@
       ballast: pick('--ballast', '#7b8494')
     };
     return sim.palette;
+  }
+
+  function prefersReducedMotion() {
+    return (
+      window.matchMedia &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    );
   }
 
   function dropPalette() {
@@ -1438,6 +1513,25 @@
       ctx.fill();
     }
 
+    /* The flash. A ring thrown off the pivot at the instant it went past the
+     * balance point — a moment that is over before you can read a status line,
+     * so it is worth drawing rather than saying. Skipped entirely when the
+     * reader has asked for less motion. */
+    var since = sim.crossedAt
+      ? (window.performance || Date).now() - sim.crossedAt
+      : Infinity;
+    if (since < 620 && !prefersReducedMotion()) {
+      var t = since / 620;
+      ctx.save();
+      ctx.globalAlpha = (1 - t) * 0.85;
+      ctx.strokeStyle = c.force;
+      ctx.lineWidth = 3 * (1 - t) + 1;
+      ctx.beginPath();
+      ctx.arc(pivot.x, pivot.y, 8 + t * 46, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
     // pivot
     ctx.fillStyle = c.force;
     ctx.beginPath();
@@ -1598,6 +1692,12 @@
      * say it the way the visible line says it, which in LED mode is not the
      * pole wording and depends on where the load is being put on. */
     if (status !== sim.lastStatus) {
+      /* The one moment in the whole app worth marking: the plumb line has
+       * crossed the pivot and its own weight is now doing the work. Until now
+       * it passed as a line of text quietly changing. */
+      if (status === 'going-over' && sim.lastStatus !== 'going-over') {
+        sim.crossedAt = (window.performance || Date).now();
+      }
       sim.lastStatus = status;
       var said = bits[0] || '';
       var loadSaid = led && sim.load
@@ -1820,7 +1920,7 @@
 
     if (isFinite(chosen.tipForce)) {
       $('out-force-equiv').innerHTML =
-        'The same pull as <strong>' + esc(fmtMass(chosen.tipForce / P.G_STANDARD)) +
+        'The same pull as <strong>' + esc(fmtMass(roundKg(chosen.tipForce / P.G_STANDARD))) +
         '</strong> on a line — ' + esc(asHoist(chosen.tipForce, result.gravity) ||
           feelsLike(chosen.tipForce)) + '.';
     } else {
@@ -3043,6 +3143,7 @@
     var forceUnit = $('force-unit').value || 'N';
 
     renderAnswer(result, forceUnit);
+    renderMiniAnswer();
     renderStats(result, forceUnit);
     renderCompare(result, forceUnit);
     renderWorking(result);
@@ -3073,6 +3174,7 @@
     lastLed = result;
 
     renderLed(result);
+    renderMiniAnswer();
 
     /* With the truss centred, show what the mirrored figure works out to
      * rather than leaving a stale number in the disabled field. */
@@ -3256,6 +3358,55 @@
    * undo — and is the reason Reset needs no confirmation dialogue: it is
    * cheaper to build and much better to use than being asked twice.
    */
+  /**
+   * The answer, one line tall, for while the real panel is off-screen.
+   *
+   * It is aria-hidden and takes no presses: the live regions in the panel above
+   * already announce every change, and a duplicate would read everything twice.
+   */
+  function renderMiniAnswer() {
+    var led = currentMode === 'led';
+    var result = led ? lastLed : lastResult;
+    if (!result) return;
+
+    var value = '—';
+    var unit = '';
+    if (result.ok) {
+      if (led) {
+        value = result.countAchievable ? String(result.uprights) : '—';
+        unit = result.countAchievable
+          ? (result.uprights === 1 ? 'upright' : 'uprights')
+          : 'no number works';
+      } else {
+        var f = result.chosen.tipForce;
+        var u = $('force-unit').value || 'N';
+        value = isFinite(f) ? fmtSig(P.fromBase(f, u, P.FORCE_UNITS)) : '—';
+        unit = isFinite(f) ? u : 'cannot be tipped this way';
+      }
+    } else {
+      unit = 'something is missing';
+    }
+
+    $('mini-value').textContent = value;
+    $('mini-unit').textContent = unit;
+
+    var badge = $('mini-badge');
+    var passes = led && result.ok && result.countAchievable ? result.passes : null;
+    badge.textContent = passes == null ? '' : passes ? 'Stands up' : 'Goes over';
+    badge.className = 'mini-badge' + (passes == null ? '' : passes ? ' is-pass' : ' is-fail');
+  }
+
+  /* Shown only while the answer panel itself is out of sight, so the two never
+   * sit on screen saying the same thing. */
+  function watchAnswerPanel() {
+    var panel = document.querySelector('.panel--answer');
+    var mini = $('mini-answer');
+    if (!panel || !mini || !window.IntersectionObserver) return;
+    new IntersectionObserver(function (entries) {
+      mini.classList.toggle('is-shown', !entries[0].isIntersecting);
+    }, { rootMargin: '-8px 0px 0px 0px' }).observe(panel);
+  }
+
   function toast(message, action) {
     var el = $('toast');
     el.textContent = message;
@@ -3448,7 +3599,9 @@
    * Boot
    * ------------------------------------------------------------------ */
 
+  watchAnswerPanel();
   populateUnitSelects();
+  populatePolePresets();
   populateLedPresets();
   applyDefaults('metric');
   restore();

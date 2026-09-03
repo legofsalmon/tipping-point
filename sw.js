@@ -10,7 +10,7 @@
  * a stale index.html can end up paired with a fresh app.js looking for an input
  * that the old markup does not have.
  */
-const CACHE = 'tipping-point-v4';
+const CACHE = 'tipping-point-v5';
 
 // Relative to the worker's own URL, so this works just as well when the app
 // is served from a subdirectory (GitHub Pages project sites, say).
@@ -19,6 +19,7 @@ const SHELL = [
   'index.html',
   'manifest.webmanifest',
   'src/styles.css',
+  'fonts/archivo-var-latin.woff2',
   'src/physics.js',
   'src/ledwall.js',
   'src/sim.js',
