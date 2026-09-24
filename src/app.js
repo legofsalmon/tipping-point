@@ -1689,9 +1689,21 @@
 
   var BOOM_LIFE = 2.4; // seconds until the last ember dies
 
+  /* Memoised on a quantised key: without it this builds a fresh string for
+   * every particle on every frame, a couple of hundred throwaway allocations
+   * sixty times a second for colours that are indistinguishable anyway. */
+  var hotCache = {};
+
+  function hotColour(p, dark, alpha) {
+    var key = (dark ? 'd' : 'l') + Math.round(p * 40) + '_' + Math.round(alpha * 40);
+    var hit = hotCache[key];
+    if (hit) return hit;
+    return (hotCache[key] = hotMix(p, dark, alpha));
+  }
+
   /* A heat ramp, 0 hottest to 1 cold. Light backgrounds need deeper colours:
    * white-hot on white is just a hole in the page. */
-  function hotColour(p, dark, alpha) {
+  function hotMix(p, dark, alpha) {
     var stops = dark
       ? [[255, 255, 245], [255, 232, 150], [255, 176, 48], [225, 92, 26], [120, 44, 22]]
       : [[255, 250, 226], [255, 206, 74], [243, 140, 24], [206, 62, 20], [104, 38, 20]];
@@ -1713,7 +1725,8 @@
     return !!(sim.boom && sim.boom.t < BOOM_LIFE);
   }
 
-  function rand(a, b) {
+  /** A number somewhere between the two. Scatter, for the blast. */
+  function spread(a, b) {
     return a + Math.random() * (b - a);
   }
 
@@ -1750,9 +1763,9 @@
        * and they are gone before they can wear out their welcome. */
       var spikes = 11;
       for (var sp0 = 0; sp0 < spikes; sp0 += 1) {
-        var sa = (sp0 / spikes) * Math.PI * 2 + rand(-0.12, 0.12);
-        push({ kind: 'spike', ang: sa, t: 0, life: rand(0.18, 0.3),
-          len: rand(0.45, 1.15) * S0, wide: rand(0.04, 0.1) * S0 });
+        var sa = (sp0 / spikes) * Math.PI * 2 + spread(-0.12, 0.12);
+        push({ kind: 'spike', ang: sa, t: 0, life: spread(0.18, 0.3),
+          len: spread(0.45, 1.15) * S0, wide: spread(0.04, 0.1) * S0 });
       }
     }
 
@@ -1760,9 +1773,9 @@
       /* Reduced motion still gets a moment — it just does not throw anything
        * at you or shake the page. */
       for (var q = 0; q < 6; q += 1) {
-        push({ kind: 'smoke', x: ox + rand(-0.15, 0.15) * S0, y: oy + rand(0, 0.12) * S0,
-          vx: rand(-0.25, 0.25) * S0, vy: rand(0.2, 0.5) * S0,
-          r: rand(0.09, 0.16) * S0, grow: 1.8, t: 0, life: rand(1.1, 1.6) });
+        push({ kind: 'smoke', x: ox + spread(-0.15, 0.15) * S0, y: oy + spread(0, 0.12) * S0,
+          vx: spread(-0.25, 0.25) * S0, vy: spread(0.2, 0.5) * S0,
+          r: spread(0.09, 0.16) * S0, grow: 1.8, t: 0, life: spread(1.1, 1.6) });
       }
       sim.boom = { t: 0, parts: parts, ox: ox, oy: oy, S: S0, shake: 0, calm: true };
       return;
@@ -1770,59 +1783,59 @@
 
     // the fireball: a few fat blobs that cool from white to smoke
     for (var i = 0; i < 14; i += 1) {
-      push({ kind: 'fire', x: ox + rand(-0.1, 0.1) * S0, y: oy + rand(0, 0.14) * S0,
-        vx: rand(-1.1, 1.1) * S0, vy: rand(0.3, 1.6) * S0,
-        r: rand(0.07, 0.17) * S0, grow: rand(1.5, 2.3), t: 0, life: rand(0.4, 0.75) });
+      push({ kind: 'fire', x: ox + spread(-0.1, 0.1) * S0, y: oy + spread(0, 0.14) * S0,
+        vx: spread(-1.1, 1.1) * S0, vy: spread(0.3, 1.6) * S0,
+        r: spread(0.07, 0.17) * S0, grow: spread(1.5, 2.3), t: 0, life: spread(0.4, 0.75) });
     }
 
     // sparks: fast, thin, gravity-bound, drawn as streaks along their travel
     for (var j = 0; j < 120; j += 1) {
-      var a = rand(-Math.PI * 0.96, Math.PI * 0.04); // mostly upward and out
-      var sp = rand(2.5, 11) * S0;
+      var a = spread(-Math.PI * 0.96, Math.PI * 0.04); // mostly upward and out
+      var sp = spread(2.5, 11) * S0;
       push({ kind: 'spark', x: ox, y: oy + 0.02 * S0,
         vx: Math.cos(a) * sp, vy: -Math.sin(a) * sp,
-        t: 0, life: rand(0.5, 1.1) });
+        t: 0, life: spread(0.5, 1.1) });
     }
 
     // debris: tumbling shards that bounce once and skitter
     for (var k = 0; k < 22; k += 1) {
-      var ang = rand(-Math.PI * 0.92, Math.PI * 0.08);
-      var spd = rand(1.8, 7.5) * S0;
-      var n = Math.round(rand(3, 5));
+      var ang = spread(-Math.PI * 0.92, Math.PI * 0.08);
+      var spd = spread(1.8, 7.5) * S0;
+      var n = Math.round(spread(3, 5));
       var poly = [];
       for (var v = 0; v < n; v += 1) {
-        var pa = (v / n) * Math.PI * 2 + rand(-0.3, 0.3);
-        var pr = rand(0.5, 1);
+        var pa = (v / n) * Math.PI * 2 + spread(-0.3, 0.3);
+        var pr = spread(0.5, 1);
         poly.push([Math.cos(pa) * pr, Math.sin(pa) * pr]);
       }
-      push({ kind: 'shard', back: Math.random() < 0.5, x: ox + rand(-0.06, 0.06) * S0, y: oy + rand(0.01, 0.1) * S0,
+      push({ kind: 'shard', back: Math.random() < 0.5, x: ox + spread(-0.06, 0.06) * S0, y: oy + spread(0.01, 0.1) * S0,
         vx: Math.cos(ang) * spd, vy: -Math.sin(ang) * spd,
-        size: rand(0.03, 0.075) * S0, poly: poly,
-        rot: rand(0, 6.28), spin: rand(-12, 12), t: 0, life: rand(1.4, 1.9) });
+        size: spread(0.03, 0.075) * S0, poly: poly,
+        rot: spread(0, 6.28), spin: spread(-12, 12), t: 0, life: spread(1.4, 1.9) });
     }
 
     // dust hugging the floor, rolling outwards
     for (var m = 0; m < 34; m += 1) {
       var dir = Math.random() < 0.5 ? -1 : 1;
-      push({ kind: 'dust', back: true, x: ox + rand(-0.1, 0.1) * S0, y: oy + rand(0, 0.06) * S0,
-        vx: dir * rand(1.4, 4.6) * S0, vy: rand(0.05, 0.5) * S0,
-        r: rand(0.05, 0.12) * S0, grow: rand(2.2, 3.6), t: 0, life: rand(0.9, 1.4) });
+      push({ kind: 'dust', back: true, x: ox + spread(-0.1, 0.1) * S0, y: oy + spread(0, 0.06) * S0,
+        vx: dir * spread(1.4, 4.6) * S0, vy: spread(0.05, 0.5) * S0,
+        r: spread(0.05, 0.12) * S0, grow: spread(2.2, 3.6), t: 0, life: spread(0.9, 1.4) });
     }
 
     // smoke that outlives the fire and shears sideways as it climbs
     for (var n2 = 0; n2 < 24; n2 += 1) {
-      push({ kind: 'smoke', x: ox + rand(-0.22, 0.22) * S0, y: oy + rand(0.02, 0.3) * S0,
-        vx: rand(-0.5, 0.5) * S0, vy: rand(0.35, 1.2) * S0,
-        r: rand(0.05, 0.13) * S0, grow: rand(2.4, 3.8), t: 0, life: rand(1.4, 2.1) });
+      push({ kind: 'smoke', x: ox + spread(-0.22, 0.22) * S0, y: oy + spread(0.02, 0.3) * S0,
+        vx: spread(-0.5, 0.5) * S0, vy: spread(0.35, 1.2) * S0,
+        r: spread(0.05, 0.13) * S0, grow: spread(2.4, 3.8), t: 0, life: spread(1.4, 2.1) });
     }
 
     // embers: the last thing still glowing, drifting down after everything else
     for (var e = 0; e < 18; e += 1) {
-      var ea = rand(-Math.PI, 0);
-      var es = rand(1.6, 5.5) * S0;
+      var ea = spread(-Math.PI, 0);
+      var es = spread(1.6, 5.5) * S0;
       push({ kind: 'ember', x: ox, y: oy + 0.03 * S0,
         vx: Math.cos(ea) * es, vy: -Math.sin(ea) * es,
-        t: 0, life: rand(1.6, 2.4), flick: rand(0, 6.28) });
+        t: 0, life: spread(1.6, 2.4), flick: spread(0, 6.28) });
     }
 
     sim.boom = { t: 0, parts: parts, ox: ox, oy: oy, S: S0, shake: 1, calm: false };
