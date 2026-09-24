@@ -120,17 +120,24 @@ Other measured facts:
       what that attempt was reaching for.
 - [x] **The threshold moment.** Mark the instant the plumb line crosses the pivot.
       It is the whole drama and it currently passes as a line of text changing.
-- [~] **The landing and the aftermath.** The chrome now clears on landing, so
-      it stops looking like a bug. Still to do: letting it lie down. The body
-      pivots about the plate's front edge and stops at 90°, hanging one
-      plate-reach above the ground, and going further is a second phase of
-      motion about a different contact — real physics rather than an easing
-      curve. Faking it would be exactly the looseness the app cannot afford, so
-      it is left for a proper go. *Again* not built.
+- [~] **The landing and the aftermath.** The chrome clears on landing, so it
+      stops looking like a bug, and the landing now has a moment of its own: an
+      explosion, fired once on the frame it finishes falling. It is aftermath
+      and nothing else — no number moves, and the wreck stays where the physics
+      put it — so the credibility this file keeps worrying about is not spent
+      on it. Still to do: letting it lie down. The body pivots about the plate's
+      front edge and stops at 90°, hanging one plate-reach above the ground, and
+      going further is a second phase of motion about a different contact — real
+      physics rather than an easing curve. Faking it would be exactly the
+      looseness the app cannot afford, so it is left for a proper go. *Again*
+      not built.
 - [x] **Objects, not dimensions** (pole mode). A row of real things that fill the
       fields: wheelie bin, fridge, vending machine, A-board, patio heater, road
       sign, Christmas tree. The preset pattern already exists — it is applied to
       parameters rather than to things. This is the "expression" half of the brief.
+      Each one is now drawn as itself on the canvas too, as artwork laid over the
+      same plate-and-pole body: a costume that stretches to whatever numbers you
+      type next and changes none of them.
 - [ ] **Hints on focus.** Not done. 2,281 characters of grey help shown at once becomes a
       texture. Keep the ones that teach something non-obvious.
 
