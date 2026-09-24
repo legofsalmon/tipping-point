@@ -142,6 +142,8 @@
         return { x: m.x - pivotX, y: m.y, role: m.role };
       }),
       pushPoint: { x: push.x - pivotX, y: push.y },
+      // whatever touches down at the end of the fall — where the impact is
+      endPoint: { x: end.x - pivotX, y: end.y },
       cgPoint: { x: cgX - pivotX, y: cgY },
       extent: {
         back: pivotX - Math.min.apply(null, (spec.shapes || [{ x0: cgX }]).map(function (s) {
@@ -208,6 +210,10 @@
     body.thickness = t;
     body.poleLength = L;
     body.poleTop = poleTop;
+    /* Half the footprint in the tipping plane. It happens to equal body.d for
+     * a centreline load, but only by coincidence — anything drawn against the
+     * footprint wants this, not that. */
+    body.halfBase = d;
     return body;
   }
 

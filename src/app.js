@@ -67,28 +67,28 @@
    * SI throughout — metres and kilograms.
    */
   var POLE_PRESETS = [
-    { label: 'Wheelie bin', note: '240 L, full',
+    { label: 'Wheelie bin', shape: 'bin', note: '240 L, full',
       plateLength: 0.74, plateWidth: 0.58, plateThickness: 0.02, plateMass: 8,
       poleLength: 1.07, poleMass: 67, topMass: 0 },
-    { label: 'Fridge-freezer', note: 'tall, full',
+    { label: 'Fridge-freezer', shape: 'fridge', note: 'tall, full',
       plateLength: 0.65, plateWidth: 0.6, plateThickness: 0.02, plateMass: 10,
       poleLength: 1.8, poleMass: 70, topMass: 0 },
-    { label: 'Vending machine', note: 'stocked',
+    { label: 'Vending machine', shape: 'vending', note: 'stocked',
       plateLength: 0.83, plateWidth: 0.89, plateThickness: 0.03, plateMass: 40,
       poleLength: 1.83, poleMass: 260, topMass: 0 },
-    { label: 'Filing cabinet', note: 'four drawer, full',
+    { label: 'Filing cabinet', shape: 'cabinet', note: 'four drawer, full',
       plateLength: 0.62, plateWidth: 0.47, plateThickness: 0.02, plateMass: 8,
       poleLength: 1.32, poleMass: 45, topMass: 0 },
-    { label: 'Patio heater', note: 'with a full bottle',
+    { label: 'Patio heater', shape: 'heater', note: 'with a full bottle',
       plateLength: 0.46, plateWidth: 0.46, plateThickness: 0.02, plateMass: 12,
       poleLength: 2.2, poleMass: 18, topMass: 4 },
-    { label: 'A-board', note: 'pavement sign',
+    { label: 'A-board', shape: 'aboard', note: 'pavement sign',
       plateLength: 0.7, plateWidth: 0.6, plateThickness: 0.02, plateMass: 3,
       poleLength: 1, poleMass: 5, topMass: 0 },
-    { label: 'Road sign', note: 'on a post',
+    { label: 'Road sign', shape: 'sign', note: 'on a post',
       plateLength: 0.4, plateWidth: 0.4, plateThickness: 0.012, plateMass: 14,
       poleLength: 2.1, poleMass: 6, topMass: 4 },
-    { label: 'Christmas tree', note: '6 ft, potted',
+    { label: 'Christmas tree', shape: 'tree', note: '6 ft, potted',
       plateLength: 0.45, plateWidth: 0.45, plateThickness: 0.02, plateMass: 12,
       poleLength: 1.8, poleMass: 14, topMass: 0 }
   ];
@@ -134,6 +134,12 @@
   })[0];
 
   var currentMode = 'pole';
+
+  /* Which preset's artwork the canvas is wearing, by index into POLE_PRESETS,
+   * or null for the bare plate-and-pole the sums are actually about. The
+   * numbers are the user's to change afterwards; the costume stays on until
+   * they take it off, and stretches to whatever they type. */
+  var activeSkin = null;
 
   var FORCE_UNIT_DEFAULT = { metric: 'N', imperial: 'lbf' };
 
@@ -312,7 +318,8 @@
     var host = $('pole-presets');
     if (!host) return;
     host.innerHTML = POLE_PRESETS.map(function (o, i) {
-      return '<button type="button" class="preset-chip" data-preset="' + i + '">' +
+      return '<button type="button" class="preset-chip" data-preset="' + i +
+        '" aria-pressed="false">' +
         esc(o.label) + '<span>' + esc(o.note) + '</span></button>';
     }).join('');
     host.addEventListener('click', function (e) {
@@ -320,14 +327,37 @@
       if (!btn) return;
       var o = POLE_PRESETS[Number(btn.getAttribute('data-preset'))];
       if (!o) return;
+      if (o.shape && o.shape === activeSkin) {
+        togglePresetSkin(o.shape);
+        toast(o.label + ' — showing the plate and pole underneath');
+        return;
+      }
       ['plateLength', 'plateWidth', 'plateThickness', 'plateMass',
         'poleLength', 'poleMass', 'topMass'].forEach(function (id) {
         setFieldBase(fieldById(id), o[id]);
       });
       $('pushAtTop').checked = true;
+      activeSkin = SKINS[o.shape] ? o.shape : null;
+      markActivePreset();
       update();
       resetSim();
       toast(o.label + ' — push it over');
+    });
+  }
+
+  /* Clicking the chip that is already on takes the costume off without
+   * disturbing the numbers, so you can see the plate and pole underneath. */
+  function togglePresetSkin(shape) {
+    activeSkin = activeSkin === shape ? null : shape;
+    markActivePreset();
+  }
+
+  function markActivePreset() {
+    var host = $('pole-presets');
+    if (!host) return;
+    Array.prototype.forEach.call(host.querySelectorAll('[data-preset]'), function (btn) {
+      var o = POLE_PRESETS[Number(btn.getAttribute('data-preset'))];
+      btn.setAttribute('aria-pressed', o && o.shape === activeSkin ? 'true' : 'false');
     });
   }
 
@@ -565,6 +595,7 @@
       if (dir !== 'width') p.set('dir', dir);
       flag('top', 'pushAtTop');
       flag('slide', 'checkSliding');
+      if (activeSkin) p.set('obj', activeSkin);
     }
 
     if ($('force-unit').value !== 'N') p.set('fu', $('force-unit').value);
@@ -624,6 +655,7 @@
     if (p.has('top')) $('pushAtTop').checked = p.get('top') === '1';
     if (p.has('slide')) $('checkSliding').checked = p.get('slide') === '1';
     if (p.has('fu') && P.FORCE_UNITS[p.get('fu')]) $('force-unit').value = p.get('fu');
+    if (p.has('obj') && SKINS[p.get('obj')]) activeSkin = p.get('obj');
     return true;
   }
 
@@ -1003,6 +1035,7 @@
     load: null, // LED mode: where the load acts and at what angle
     lastStatus: '',
     palette: null,
+    boom: null, // the blast, while one is burning
     hintShown: true
   };
 
@@ -1026,7 +1059,8 @@
       force: pick('--force', '#d94f0a'),
       screen: pick('--screen', '#2f3947'),
       screenLine: pick('--screen-line', '#151a22'),
-      ballast: pick('--ballast', '#7b8494')
+      ballast: pick('--ballast', '#7b8494'),
+      dark: pick('--sim-dark', '0') === '1'
     };
     return sim.palette;
   }
@@ -1164,6 +1198,7 @@
     sim.state = S.makeState();
     sim.dragForce = null;
     sim.dragPoint = null;
+    sim.boom = null;
     setApplying(false);
     drawSim();
     renderSimReadouts();
@@ -1211,6 +1246,17 @@
     var padLeft = Math.max(span * 0.3, height * 0.2);
     var padRight = Math.max(span * 0.12, height * 0.08);
     var padTop = Math.max(height * 0.16, span * 0.06);
+
+    /* Once it is down there is a blast going off around the end that hit, and
+     * a frame sized to the wreck alone crops most of it away. The extra room
+     * is added on landing and kept, so the view widens once rather than
+     * pumping back in when the smoke clears. */
+    if (sim.state && sim.state.fallen) {
+      var blast = Math.max(span, height) * 0.55;
+      padRight += blast;
+      padTop += blast * 0.7;
+      padLeft += blast * 0.35;
+    }
 
     var worldW = span + padLeft + padRight;
     var worldH = height + padTop;
@@ -1318,6 +1364,199 @@
     }
   }
 
+  /* ------------------------------------------------------------------ *
+   * Object skins
+   *
+   * The physics only ever knows a baseplate and a pole. A skin is artwork
+   * laid over that same body, so picking "Christmas tree" draws a Christmas
+   * tree without a single number moving. It is a costume, not a model: the
+   * side-view diagram below the canvas still shows the plate and the pole
+   * that the sums are actually about.
+   *
+   * Skin space: u runs across the footprint, -1 at the back edge of the plate
+   * to +1 at the front (tipping) edge; v runs up, 0 at the ground to 1 at the
+   * top. Parts may overhang the footprint — a real tree's branches reach well
+   * past its pot — but nothing sits below v = 0, which is the floor.
+   * ------------------------------------------------------------------ */
+
+  var SKIN_COLOURS = {
+    light: {
+      steel: '#cfd6dd', steelDark: '#9aa5b1', chrome: '#e8edf2',
+      plastic: '#3f4a55', plasticLight: '#5b6875',
+      green: '#2f7d4f', greenDark: '#1d5434', greenLight: '#4aa06a',
+      brown: '#7a5230', brownDark: '#4e341d',
+      red: '#c0392b', redDark: '#8e2a20',
+      yellow: '#e8b923', amber: '#e08b2a', gold: '#d4a437',
+      blue: '#2f6fb0', blueDark: '#1f4c7c',
+      black: '#232a31', white: '#f4f6f8', grey: '#8c959e',
+      glass: '#b9d4e6', shadow: 'rgba(0,0,0,0.18)'
+    },
+    dark: {
+      steel: '#7c8792', steelDark: '#59636d', chrome: '#9aa6b2',
+      plastic: '#2b333b', plasticLight: '#414c57',
+      green: '#2b7048', greenDark: '#194a2e', greenLight: '#3f8d5d',
+      brown: '#6a4729', brownDark: '#412c19',
+      red: '#a8322a', redDark: '#7a241c',
+      yellow: '#c79c1d', amber: '#bd7523', gold: '#b58c2e',
+      blue: '#2a5f95', blueDark: '#1b4068',
+      black: '#161c22', white: '#c9d1d9', grey: '#6d767f',
+      glass: '#5d7f96', shadow: 'rgba(0,0,0,0.35)'
+    }
+  };
+
+  var SKINS = {
+    // Wheelie bin
+    bin: [
+      {"t":"poly","pts":[[-0.95,0.875],[-0.93,0.32],[-0.9,0.09],[-0.86,0.04],[0.8,0.04],[0.85,0.13],[0.95,0.875]],"fill":"green","stroke":"greenDark"},
+      {"t":"poly","pts":[[-0.88,0.22],[0.79,0.22],[0.87,0.75],[-0.9,0.75]],"fill":"greenLight","stroke":"greenDark","alpha":0.4},
+      {"t":"line","pts":[[-0.55,0.25],[-0.53,0.72]],"stroke":"greenDark","w":0.05},
+      {"t":"line","pts":[[-0.1,0.25],[-0.07,0.72]],"stroke":"greenDark","w":0.05},
+      {"t":"line","pts":[[0.36,0.25],[0.41,0.72]],"stroke":"greenDark","w":0.05},
+      {"t":"poly","pts":[[-0.9,0.16],[0.845,0.16],[0.81,0.05],[-0.885,0.05]],"fill":"greenDark","stroke":"greenDark"},
+      {"t":"poly","pts":[[0.34,0.13],[0.83,0.13],[0.9,0],[0.44,0]],"fill":"greenDark","stroke":"greenDark"},
+      {"t":"poly","pts":[[-0.9,0.64],[-1.13,0.672],[-1.19,0.722],[-1.15,0.782],[-0.92,0.79]],"fill":"greenDark","stroke":"greenDark"},
+      {"t":"line","pts":[[-1.12,0.716],[-0.95,0.722]],"stroke":"black","w":0.026,"alpha":0.5},
+      {"t":"poly","pts":[[0.66,0.782],[1,0.8],[1.01,0.866],[0.68,0.866]],"fill":"greenDark","stroke":"greenDark"},
+      {"t":"line","pts":[[0.7,0.822],[0.99,0.836]],"stroke":"black","w":0.022,"alpha":0.45},
+      {"t":"poly","pts":[[-1.08,0.89],[-1.05,0.968],[-0.55,1],[0.52,1.005],[0.9,0.983],[1.04,0.947],[1.07,0.9],[0.99,0.874],[-1.02,0.876]],"fill":"greenDark","stroke":"black"},
+      {"t":"line","pts":[[-0.8,0.982],[0.55,0.99]],"stroke":"green","w":0.03,"alpha":0.55},
+      {"t":"line","pts":[[-0.94,0.87],[0.95,0.87]],"stroke":"black","w":0.022,"alpha":0.5},
+      {"t":"ellipse","cu":-0.94,"cv":0.88,"ru":0.115,"rv":0.03,"fill":"black","stroke":"black"},
+      {"t":"rect","u0":-0.88,"v0":0.05,"u1":-0.44,"v1":0.14,"fill":"black","stroke":"black"},
+      {"t":"ellipse","cu":-0.48,"cv":0.098,"ru":0.31,"rv":0.083,"fill":"black","stroke":"black","alpha":0.45},
+      {"t":"ellipse","cu":-0.62,"cv":0.093,"ru":0.345,"rv":0.092,"fill":"black","stroke":"black"},
+      {"t":"ellipse","cu":-0.62,"cv":0.093,"ru":0.135,"rv":0.036,"fill":"grey","stroke":"black"}
+    ],
+
+    // Fridge-freezer
+    fridge: [
+      {"t":"poly","pts":[[-1,0.018],[-0.96,0],[0.96,0],[1,0.018],[1,0.968],[0.9,0.985],[-0.9,0.985],[-1,0.968]],"fill":"plastic","stroke":"grey","w":0.05},
+      {"t":"poly","pts":[[-1,0.018],[-0.96,0],[-0.72,0],[-0.72,0.985],[-0.9,0.985],[-1,0.968]],"fill":"steelDark","stroke":"grey","w":0.05},
+      {"t":"rect","u0":-0.86,"v0":0.008,"u1":0.88,"v1":0.028,"fill":"black","alpha":0.55},
+      {"t":"poly","pts":[[-0.7,0.072],[0.9,0.072],[0.975,0.084],[0.975,0.386],[0.9,0.398],[-0.7,0.398]],"fill":"chrome","stroke":"grey","w":0.035},
+      {"t":"poly","pts":[[-0.7,0.428],[0.9,0.428],[0.975,0.44],[0.975,0.938],[0.9,0.95],[-0.7,0.95]],"fill":"chrome","stroke":"grey","w":0.035},
+      {"t":"rect","u0":-0.52,"v0":0.09,"u1":-0.3,"v1":0.38,"fill":"white","alpha":0.34},
+      {"t":"rect","u0":-0.52,"v0":0.446,"u1":-0.3,"v1":0.932,"fill":"white","alpha":0.34},
+      {"t":"rect","u0":-0.6,"v0":0.1,"u1":0.9,"v1":0.37,"stroke":"steelDark","w":0.025},
+      {"t":"rect","u0":-0.6,"v0":0.456,"u1":0.9,"v1":0.922,"stroke":"steelDark","w":0.025},
+      {"t":"rect","u0":-0.8,"v0":0.12,"u1":-0.63,"v1":0.17,"fill":"plasticLight","stroke":"plastic"},
+      {"t":"rect","u0":-0.8,"v0":0.466,"u1":-0.63,"v1":0.516,"fill":"plasticLight","stroke":"plastic"},
+      {"t":"rect","u0":-0.8,"v0":0.876,"u1":-0.63,"v1":0.926,"fill":"plasticLight","stroke":"plastic"},
+      {"t":"rect","u0":-0.18,"v0":0.856,"u1":0.44,"v1":0.906,"fill":"blueDark","stroke":"black"},
+      {"t":"line","pts":[[0.9,0.448],[1.15,0.448],[1.15,0.908],[0.9,0.908]],"stroke":"plastic","w":0.19},
+      {"t":"line","pts":[[0.9,0.448],[1.15,0.448],[1.15,0.908],[0.9,0.908]],"stroke":"steel","w":0.115},
+      {"t":"line","pts":[[0.9,0.11],[1.15,0.11],[1.15,0.378],[0.9,0.378]],"stroke":"plastic","w":0.19},
+      {"t":"line","pts":[[0.9,0.11],[1.15,0.11],[1.15,0.378],[0.9,0.378]],"stroke":"steel","w":0.115},
+      {"t":"poly","pts":[[-1.06,0.962],[1.02,0.962],[1.06,0.978],[1.06,1],[1,1.014],[-1,1.014],[-1.06,1]],"fill":"steel","stroke":"grey","w":0.05}
+    ],
+
+    // Vending machine
+    vending: [
+      {"t":"poly","pts":[[-1,0],[1,0],[1,0.968],[0.96,1],[-0.96,1],[-1,0.968]],"fill":"plastic","stroke":"black","w":0.045},
+      {"t":"poly","pts":[[-1,0],[-0.86,0],[-0.86,1],[-0.96,1],[-1,0.968]],"fill":"plasticLight","stroke":"black","w":0.03},
+      {"t":"rect","u0":-0.9,"v0":0.855,"u1":0.92,"v1":0.972,"fill":"red","stroke":"redDark","w":0.03},
+      {"t":"poly","pts":[[-0.86,0.876],[0.88,0.9],[0.88,0.938],[-0.86,0.914]],"fill":"white","alpha":0.85},
+      {"t":"rect","u0":-0.92,"v0":0.272,"u1":0.26,"v1":0.828,"fill":"black","stroke":"black","w":0.03},
+      {"t":"rect","u0":-0.875,"v0":0.296,"u1":0.215,"v1":0.806,"fill":"glass","stroke":"steelDark","w":0.028},
+      {"t":"rect","u0":-0.845,"v0":0.318,"u1":0.185,"v1":0.418,"fill":"amber","stroke":"brownDark","w":0.018},
+      {"t":"rect","u0":-0.845,"v0":0.44,"u1":0.185,"v1":0.54,"fill":"green","stroke":"greenDark","w":0.018},
+      {"t":"rect","u0":-0.845,"v0":0.562,"u1":0.185,"v1":0.662,"fill":"blue","stroke":"blueDark","w":0.018},
+      {"t":"rect","u0":-0.845,"v0":0.684,"u1":0.185,"v1":0.784,"fill":"red","stroke":"redDark","w":0.018},
+      {"t":"line","pts":[[-0.673,0.318],[-0.673,0.784],[-0.501,0.784],[-0.501,0.318],[-0.329,0.318],[-0.329,0.784],[-0.157,0.784],[-0.157,0.318],[0.015,0.318],[0.015,0.784]],"stroke":"black","w":0.016,"alpha":0.55},
+      {"t":"poly","pts":[[-0.7,0.806],[-0.46,0.806],[-0.875,0.4],[-0.875,0.64]],"fill":"white","alpha":0.2},
+      {"t":"rect","u0":0.32,"v0":0.272,"u1":0.92,"v1":0.828,"fill":"plasticLight","stroke":"black","w":0.03},
+      {"t":"rect","u0":0.38,"v0":0.69,"u1":0.86,"v1":0.8,"fill":"steel","stroke":"black","w":0.02},
+      {"t":"rect","u0":0.58,"v0":0.712,"u1":0.66,"v1":0.78,"fill":"black"},
+      {"t":"rect","u0":0.38,"v0":0.376,"u1":0.86,"v1":0.648,"fill":"black","stroke":"steelDark","w":0.02},
+      {"t":"line","pts":[[0.54,0.376],[0.54,0.648],[0.7,0.648],[0.7,0.376]],"stroke":"steelDark","w":0.014},
+      {"t":"line","pts":[[0.38,0.444],[0.86,0.444],[0.86,0.512],[0.38,0.512],[0.38,0.58],[0.86,0.58]],"stroke":"steelDark","w":0.014},
+      {"t":"rect","u0":0.48,"v0":0.3,"u1":0.76,"v1":0.348,"fill":"black","stroke":"steelDark","w":0.02},
+      {"t":"rect","u0":-0.82,"v0":0.082,"u1":0.32,"v1":0.248,"fill":"black","stroke":"black","w":0.03},
+      {"t":"poly","pts":[[-0.78,0.1],[0.28,0.1],[0.28,0.222],[-0.78,0.222]],"fill":"plasticLight","stroke":"steelDark","w":0.025},
+      {"t":"rect","u0":-0.78,"v0":0.204,"u1":0.28,"v1":0.23,"fill":"steel","stroke":"black","w":0.018},
+      {"t":"rect","u0":-0.92,"v0":0.012,"u1":0.92,"v1":0.048,"fill":"black","alpha":0.55}
+    ]
+  };
+
+  function skinColour(name, dark) {
+    var set = dark ? SKIN_COLOURS.dark : SKIN_COLOURS.light;
+    return set[name] || name;
+  }
+
+  function drawSkinParts(ctx, parts, map, dark, lineScale) {
+    parts.forEach(function (part) {
+      var fill = part.fill ? skinColour(part.fill, dark) : null;
+      var stroke = part.stroke ? skinColour(part.stroke, dark) : null;
+      ctx.lineWidth = Math.max(1, (part.w == null ? 0.02 : part.w) * lineScale);
+      ctx.lineJoin = 'round';
+      ctx.lineCap = 'round';
+      if (part.alpha != null) ctx.globalAlpha = part.alpha;
+
+      if (part.t === 'rect') {
+        skinPath(ctx, [[part.u0, part.v0], [part.u1, part.v0],
+          [part.u1, part.v1], [part.u0, part.v1]], map);
+        skinPaint(ctx, fill, stroke);
+      } else if (part.t === 'poly') {
+        skinPath(ctx, part.pts, map);
+        skinPaint(ctx, fill, stroke);
+      } else if (part.t === 'ellipse') {
+        skinPath(ctx, skinEllipsePts(part), map);
+        skinPaint(ctx, fill, stroke);
+      } else if (part.t === 'line') {
+        ctx.beginPath();
+        part.pts.forEach(function (pt, i) {
+          var q = map(pt[0], pt[1]);
+          if (i === 0) ctx.moveTo(q.x, q.y);
+          else ctx.lineTo(q.x, q.y);
+        });
+        if (stroke) {
+          ctx.strokeStyle = stroke;
+          ctx.stroke();
+        }
+      }
+      ctx.globalAlpha = 1;
+    });
+  }
+
+  function skinPath(ctx, pts, map) {
+    ctx.beginPath();
+    pts.forEach(function (pt, i) {
+      var q = map(pt[0], pt[1]);
+      if (i === 0) ctx.moveTo(q.x, q.y);
+      else ctx.lineTo(q.x, q.y);
+    });
+    ctx.closePath();
+  }
+
+  /* An ellipse in skin space is a rotated ellipse on screen once the object
+   * tips, so it is walked as a polygon rather than handed to ctx.ellipse. */
+  function skinEllipsePts(e) {
+    var pts = [];
+    for (var i = 0; i < 40; i += 1) {
+      var a = (i / 40) * Math.PI * 2;
+      pts.push([e.cu + e.ru * Math.cos(a), e.cv + e.rv * Math.sin(a)]);
+    }
+    return pts;
+  }
+
+  /* Artwork only stands in for the single-pole body. The LED wall is drawn
+   * from its own real geometry and has nothing to dress up as. */
+  function currentSkin() {
+    if (currentMode !== 'pole' || !activeSkin) return null;
+    return SKINS[activeSkin] || null;
+  }
+
+  function skinPaint(ctx, fill, stroke) {
+    if (fill) {
+      ctx.fillStyle = fill;
+      ctx.fill();
+    }
+    if (stroke) {
+      ctx.strokeStyle = stroke;
+      ctx.stroke();
+    }
+  }
+
   function arrow(ctx, fromX, fromY, toX, toY, colour, width) {
     var dx = toX - fromX;
     var dy = toY - fromY;
@@ -1344,6 +1583,373 @@
     ctx.fill();
   }
 
+  /* ------------------------------------------------------------------ *
+   * The explosion
+   *
+   * Pure aftermath. It fires once, on the frame the object finishes falling,
+   * and it changes nothing the app reports: no number moves, no moment
+   * changes, and the wreck underneath stays exactly where the physics put it.
+   * It is the sound effect, drawn.
+   *
+   * Particles live in world metres rather than pixels, so they stay welded to
+   * the scene while the camera eases out, and the whole blast scales with the
+   * object — a road sign goes off smaller than a vending machine.
+   * ------------------------------------------------------------------ */
+
+  var BOOM_LIFE = 2.4; // seconds until the last ember dies
+
+  /* A heat ramp, 0 hottest to 1 cold. Light backgrounds need deeper colours:
+   * white-hot on white is just a hole in the page. */
+  function hotColour(p, dark, alpha) {
+    var stops = dark
+      ? [[255, 255, 245], [255, 232, 150], [255, 176, 48], [225, 92, 26], [120, 44, 22]]
+      : [[255, 250, 226], [255, 206, 74], [243, 140, 24], [206, 62, 20], [104, 38, 20]];
+    var x = Math.max(0, Math.min(0.999, p)) * (stops.length - 1);
+    var i = Math.floor(x);
+    var f = x - i;
+    var a = stops[i];
+    var b = stops[i + 1] || a;
+    return 'rgba(' + Math.round(a[0] + (b[0] - a[0]) * f) + ',' +
+      Math.round(a[1] + (b[1] - a[1]) * f) + ',' +
+      Math.round(a[2] + (b[2] - a[2]) * f) + ',' + alpha + ')';
+  }
+
+  function smokeColour(dark, alpha) {
+    return dark ? 'rgba(150,158,168,' + alpha + ')' : 'rgba(96,104,114,' + alpha + ')';
+  }
+
+  function boomAlive() {
+    return !!(sim.boom && sim.boom.t < BOOM_LIFE);
+  }
+
+  function rand(a, b) {
+    return a + Math.random() * (b - a);
+  }
+
+  /**
+   * Fire the blast at the point that just hit the ground.
+   * @param {object} b the body, for its scale and its end point
+   * @param {object} st the state, for where that point has rotated to
+   */
+  function fireBoom(b, st) {
+    var end = S.rotate(st, b.endPoint.x, b.endPoint.y);
+    var ox = end.x + st.slide;
+    var oy = Math.max(end.y, 0);
+    /* Half the object's height. Big enough to be an event, small enough that
+     * the wreck it is about stays the thing you are looking at. */
+    var S0 = Math.max((b.poleTop || 1) * 0.5, 0.15);
+    var calm = prefersReducedMotion();
+
+    var parts = [];
+    var push = function (p) { parts.push(p); };
+
+    /* A ring of pressure, then the ground wave it drives outwards. */
+    for (var r = 0; r < (calm ? 1 : 2); r += 1) {
+      push({ kind: 'ring', back: true, t: -r * 0.05, life: calm ? 0.5 : 0.34,
+        r0: 0.06 * S0, r1: (calm ? 1.3 : 2.0 - r * 0.55) * S0, w: (0.13 - r * 0.05) * S0 });
+    }
+    push({ kind: 'wave', back: true, t: 0, life: calm ? 0.6 : 1.1,
+      r0: 0.07 * S0, r1: (calm ? 1.4 : 2.8) * S0, w: 0.12 * S0 });
+
+    if (!calm) {
+      /* Tapered spikes off the centre. Nothing reads as an explosion faster,
+       * and they are gone before they can wear out their welcome. */
+      var spikes = 11;
+      for (var sp0 = 0; sp0 < spikes; sp0 += 1) {
+        var sa = (sp0 / spikes) * Math.PI * 2 + rand(-0.12, 0.12);
+        push({ kind: 'spike', ang: sa, t: 0, life: rand(0.18, 0.3),
+          len: rand(0.45, 1.15) * S0, wide: rand(0.04, 0.1) * S0 });
+      }
+    }
+
+    if (calm) {
+      /* Reduced motion still gets a moment — it just does not throw anything
+       * at you or shake the page. */
+      for (var q = 0; q < 6; q += 1) {
+        push({ kind: 'smoke', x: ox + rand(-0.15, 0.15) * S0, y: oy + rand(0, 0.12) * S0,
+          vx: rand(-0.25, 0.25) * S0, vy: rand(0.2, 0.5) * S0,
+          r: rand(0.09, 0.16) * S0, grow: 1.8, t: 0, life: rand(1.1, 1.6) });
+      }
+      sim.boom = { t: 0, parts: parts, ox: ox, oy: oy, S: S0, shake: 0, calm: true };
+      return;
+    }
+
+    // the fireball: a few fat blobs that cool from white to smoke
+    for (var i = 0; i < 14; i += 1) {
+      push({ kind: 'fire', x: ox + rand(-0.1, 0.1) * S0, y: oy + rand(0, 0.14) * S0,
+        vx: rand(-1.1, 1.1) * S0, vy: rand(0.3, 1.6) * S0,
+        r: rand(0.07, 0.17) * S0, grow: rand(1.5, 2.3), t: 0, life: rand(0.4, 0.75) });
+    }
+
+    // sparks: fast, thin, gravity-bound, drawn as streaks along their travel
+    for (var j = 0; j < 120; j += 1) {
+      var a = rand(-Math.PI * 0.96, Math.PI * 0.04); // mostly upward and out
+      var sp = rand(2.5, 11) * S0;
+      push({ kind: 'spark', x: ox, y: oy + 0.02 * S0,
+        vx: Math.cos(a) * sp, vy: -Math.sin(a) * sp,
+        t: 0, life: rand(0.5, 1.1) });
+    }
+
+    // debris: tumbling shards that bounce once and skitter
+    for (var k = 0; k < 22; k += 1) {
+      var ang = rand(-Math.PI * 0.92, Math.PI * 0.08);
+      var spd = rand(1.8, 7.5) * S0;
+      var n = Math.round(rand(3, 5));
+      var poly = [];
+      for (var v = 0; v < n; v += 1) {
+        var pa = (v / n) * Math.PI * 2 + rand(-0.3, 0.3);
+        var pr = rand(0.5, 1);
+        poly.push([Math.cos(pa) * pr, Math.sin(pa) * pr]);
+      }
+      push({ kind: 'shard', back: Math.random() < 0.5, x: ox + rand(-0.06, 0.06) * S0, y: oy + rand(0.01, 0.1) * S0,
+        vx: Math.cos(ang) * spd, vy: -Math.sin(ang) * spd,
+        size: rand(0.03, 0.075) * S0, poly: poly,
+        rot: rand(0, 6.28), spin: rand(-12, 12), t: 0, life: rand(1.4, 1.9) });
+    }
+
+    // dust hugging the floor, rolling outwards
+    for (var m = 0; m < 34; m += 1) {
+      var dir = Math.random() < 0.5 ? -1 : 1;
+      push({ kind: 'dust', back: true, x: ox + rand(-0.1, 0.1) * S0, y: oy + rand(0, 0.06) * S0,
+        vx: dir * rand(1.4, 4.6) * S0, vy: rand(0.05, 0.5) * S0,
+        r: rand(0.05, 0.12) * S0, grow: rand(2.2, 3.6), t: 0, life: rand(0.9, 1.4) });
+    }
+
+    // smoke that outlives the fire and shears sideways as it climbs
+    for (var n2 = 0; n2 < 24; n2 += 1) {
+      push({ kind: 'smoke', x: ox + rand(-0.22, 0.22) * S0, y: oy + rand(0.02, 0.3) * S0,
+        vx: rand(-0.5, 0.5) * S0, vy: rand(0.35, 1.2) * S0,
+        r: rand(0.05, 0.13) * S0, grow: rand(2.4, 3.8), t: 0, life: rand(1.4, 2.1) });
+    }
+
+    // embers: the last thing still glowing, drifting down after everything else
+    for (var e = 0; e < 18; e += 1) {
+      var ea = rand(-Math.PI, 0);
+      var es = rand(1.6, 5.5) * S0;
+      push({ kind: 'ember', x: ox, y: oy + 0.03 * S0,
+        vx: Math.cos(ea) * es, vy: -Math.sin(ea) * es,
+        t: 0, life: rand(1.6, 2.4), flick: rand(0, 6.28) });
+    }
+
+    sim.boom = { t: 0, parts: parts, ox: ox, oy: oy, S: S0, shake: 1, calm: false };
+  }
+
+  function updateBoom(dt) {
+    var boom = sim.boom;
+    if (!boom) return;
+    var step = Math.min(dt, 1 / 30); // a stalled tab must not teleport the debris
+    boom.t += step;
+    if (boom.t > BOOM_LIFE) {
+      sim.boom = null;
+      return;
+    }
+
+    var g = 9.80665;
+    boom.parts.forEach(function (p) {
+      p.t += step;
+      if (p.t < 0) return;
+      // these are drawn from the blast centre and have nothing to integrate
+      if (p.kind === 'ring' || p.kind === 'wave' || p.kind === 'spike') return;
+
+      if (p.kind === 'spark' || p.kind === 'ember') {
+        p.px = p.x;
+        p.py = p.y;
+        p.vy -= g * step * (p.kind === 'ember' ? 0.35 : 0.9);
+        var drag = p.kind === 'ember' ? 0.94 : 0.985;
+        p.vx *= drag;
+        p.vy *= drag;
+      } else if (p.kind === 'shard') {
+        p.vy -= g * step;
+        p.rot += p.spin * step;
+      } else {
+        // fire, smoke and dust are buoyant and heavily damped
+        p.vx *= 0.94;
+        p.vy = p.vy * 0.96 + (p.kind === 'dust' ? -0.4 : 0.6) * step;
+      }
+
+      p.x += p.vx * step;
+      p.y += p.vy * step;
+
+      // the floor: shards bounce and skid, everything else just stops sinking
+      if (p.y < 0) {
+        p.y = 0;
+        if (p.kind === 'shard') {
+          p.vy = Math.abs(p.vy) * 0.35;
+          p.vx *= 0.7;
+          p.spin *= 0.6;
+          if (Math.abs(p.vy) < 0.2) p.vy = 0;
+        } else if (p.kind === 'spark' || p.kind === 'ember') {
+          p.vy = Math.abs(p.vy) * 0.25;
+          p.vx *= 0.6;
+        } else {
+          p.vy = Math.max(p.vy, 0);
+        }
+      }
+    });
+  }
+
+  /** Decaying camera kick, in pixels. Two frequencies so it does not buzz. */
+  function boomShake() {
+    var boom = sim.boom;
+    if (!boom || boom.calm || boom.t > 0.6) return null;
+    var fall = Math.exp(-boom.t / 0.16);
+    var amp = 11 * fall;
+    return {
+      x: Math.sin(boom.t * 71) * amp,
+      y: Math.sin(boom.t * 53 + 1.3) * amp * 0.7
+    };
+  }
+
+  /**
+   * @param {string} layer 'back' for what rolls out behind the wreck, 'front'
+   *   for what bursts in front of it. Drawn either side of the body so the
+   *   blast has some depth instead of sitting flat on top.
+   */
+  function drawBoom(ctx, view, layer) {
+    var boom = sim.boom;
+    if (!boom) return;
+    var wantBack = layer === 'back';
+    var dark = palette().dark;
+    var px = function (metres) { return Math.max(0.4, metres * view.scale); };
+
+    ctx.save();
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    /* The floor is opaque. Clipping to it also turns the ground wave into the
+     * half-ellipse a dust wave actually looks like seen from the side. */
+    ctx.beginPath();
+    ctx.rect(-400, -400, view.w + 800, view.groundY + 400);
+    ctx.clip();
+
+    /* The flash comes first and is gone almost at once — it is what sells the
+     * impact frame, and it has to clear before it hides the wreck. */
+    if (!wantBack && !boom.calm && boom.t < 0.14) {
+      var fl = 1 - boom.t / 0.14;
+      var fx = view.sx(boom.ox);
+      var fy = view.sy(boom.oy);
+      var fr = px(boom.S * 1.5);
+      var grad = ctx.createRadialGradient(fx, fy, 0, fx, fy, fr);
+      grad.addColorStop(0, hotColour(0, dark, 0.95 * fl));
+      grad.addColorStop(0.45, hotColour(0.35, dark, 0.5 * fl));
+      grad.addColorStop(1, hotColour(0.6, dark, 0));
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(fx, fy, fr, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    boom.parts.forEach(function (p) {
+      if (p.t < 0) return;
+      if (!!p.back !== wantBack) return;
+      var age = p.t / p.life;
+      if (age > 1) return;
+      var fade = 1 - age;
+
+      if (p.kind === 'ring' || p.kind === 'wave') {
+        var ease = 1 - Math.pow(1 - age, 3);
+        var rad = p.r0 + (p.r1 - p.r0) * ease;
+        ctx.globalAlpha = Math.pow(fade, 1.2) * (p.kind === 'wave' ? 0.4 : 1);
+        ctx.strokeStyle = p.kind === 'wave'
+          ? smokeColour(dark, 1)
+          : hotColour(0.45 + age * 0.45, dark, 1);
+        ctx.lineWidth = px(p.w * fade);
+        ctx.beginPath();
+        /* The ground wave is a circle seen almost edge-on, so it is squashed
+         * flat rather than drawn as a sphere floating on the floor. */
+        var squash = p.kind === 'wave' ? 0.26 : 0.82;
+        ctx.ellipse(view.sx(boom.ox), view.sy(boom.oy),
+          px(rad), px(rad) * squash, 0, 0, Math.PI * 2);
+        ctx.stroke();
+        return;
+      }
+
+      var sx = view.sx(p.x);
+      var sy = view.sy(p.y);
+
+      if (p.kind === 'spike') {
+        var reach = p.len * (1 - Math.pow(1 - age, 2));
+        var bx = view.sx(boom.ox);
+        var by = view.sy(boom.oy);
+        var ca = Math.cos(p.ang);
+        var sa2 = Math.sin(p.ang);
+        ctx.globalAlpha = Math.pow(fade, 0.9);
+        ctx.fillStyle = hotColour(age * 0.35, dark, 1);
+        ctx.beginPath();
+        ctx.moveTo(bx + ca * px(reach), by - sa2 * px(reach));
+        ctx.lineTo(bx - sa2 * px(p.wide), by - ca * px(p.wide));
+        ctx.lineTo(bx + sa2 * px(p.wide), by + ca * px(p.wide));
+        ctx.closePath();
+        ctx.fill();
+        return;
+      }
+
+      if (p.kind === 'fire') {
+        var fr2 = px(p.r * (1 + (p.grow - 1) * age));
+        ctx.globalAlpha = Math.pow(fade, 0.7);
+        ctx.fillStyle = hotColour(age, dark, 1);
+        ctx.beginPath();
+        ctx.arc(sx, sy, fr2, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (p.kind === 'smoke' || p.kind === 'dust') {
+        var sr = px(p.r * (1 + (p.grow - 1) * age));
+        ctx.globalAlpha = (p.kind === 'dust' ? 0.32 : 0.22) * Math.pow(fade, 1.3);
+        ctx.fillStyle = smokeColour(dark, 1);
+        ctx.beginPath();
+        ctx.arc(sx, sy, sr, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (p.kind === 'spark') {
+        ctx.globalAlpha = Math.pow(fade, 0.8);
+        ctx.strokeStyle = hotColour(age * 0.8, dark, 1);
+        ctx.lineWidth = Math.max(1.2, px(0.012 * boom.S) * fade);
+        /* Streaked along the last step, but clamped: a fast spark across a
+         * slow frame otherwise draws a stripe the width of the canvas. */
+        var lx = view.sx(p.px == null ? p.x : p.px);
+        var ly = view.sy(p.py == null ? p.y : p.py);
+        var maxLen = px(0.22 * boom.S);
+        var dx = sx - lx;
+        var dy = sy - ly;
+        var len = Math.hypot(dx, dy);
+        if (len > maxLen) {
+          lx = sx - (dx / len) * maxLen;
+          ly = sy - (dy / len) * maxLen;
+        }
+        ctx.beginPath();
+        ctx.moveTo(lx, ly);
+        ctx.lineTo(sx, sy);
+        ctx.stroke();
+      } else if (p.kind === 'ember') {
+        var twinkle = 0.55 + 0.45 * Math.sin(p.flick + p.t * 17);
+        ctx.globalAlpha = Math.pow(fade, 1.1) * twinkle;
+        ctx.fillStyle = hotColour(0.25 + age * 0.5, dark, 1);
+        ctx.beginPath();
+        ctx.arc(sx, sy, Math.max(1, px(0.012 * boom.S)), 0, Math.PI * 2);
+        ctx.fill();
+      } else if (p.kind === 'shard') {
+        ctx.globalAlpha = age > 0.75 ? (1 - age) / 0.25 : 1;
+        ctx.fillStyle = dark ? '#5b656f' : '#7d8894';
+        ctx.strokeStyle = dark ? '#2a3138' : '#454e57';
+        ctx.lineWidth = 1;
+        var size = px(p.size);
+        ctx.beginPath();
+        p.poly.forEach(function (pt, i) {
+          var cx = Math.cos(p.rot) * pt[0] - Math.sin(p.rot) * pt[1];
+          var cy = Math.sin(p.rot) * pt[0] + Math.cos(p.rot) * pt[1];
+          var qx = sx + cx * size;
+          var qy = sy + cy * size;
+          if (i === 0) ctx.moveTo(qx, qy);
+          else ctx.lineTo(qx, qy);
+        });
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+      }
+    });
+
+    ctx.globalAlpha = 1;
+    ctx.restore();
+  }
+
   function drawSim(dt) {
     var canvas = $('sim-canvas');
     var ctx = canvas.getContext('2d');
@@ -1360,6 +1966,12 @@
     }
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, canvas.clientWidth, canvas.clientHeight);
+
+    /* The kick is applied to the whole scene rather than to the canvas element,
+     * so it cannot shove the page around it. setTransform above resets it
+     * every frame, so nothing accumulates. */
+    var kick = boomShake();
+    if (kick) ctx.translate(kick.x, kick.y);
 
     var b = sim.body;
     var st = sim.state;
@@ -1398,8 +2010,38 @@
 
     /* Every solid part, rotated about the pivot. Anything thinner than a
      * couple of pixels is drawn at that minimum so it doesn't vanish. */
+    // dust and the ground wave roll out behind the wreck
+    drawBoom(ctx, view, 'back');
+
+    var skin = currentSkin();
+    if (skin) {
+      /* Skin space rides on the same body frame, so the artwork rotates and
+       * slides with the physics for free. */
+      var halfBase = b.halfBase || b.d || 1;
+      var top = b.poleTop || 1;
+      /* Artwork that overhangs the footprint swings below the floor once the
+       * object is past ninety degrees. The floor is opaque, so the costume is
+       * clipped to it. The physics shapes below are deliberately not: one of
+       * those dipping under the ground would be a modelling fault worth
+       * seeing rather than hiding. */
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(-400, -400, view.w + 800, view.groundY + 400);
+      ctx.clip();
+      drawSkinParts(
+        ctx,
+        skin,
+        /* Drawing coordinates are pivot-relative, and the pivot is the front
+         * edge of the footprint — so u = +1 lands on the origin. */
+        function (u, v) { return bodyPoint(view, (u - 1) * halfBase, v * top); },
+        c.dark,
+        halfBase * view.scale
+      );
+      ctx.restore();
+    }
+
     var minSize = 2.5 / view.scale;
-    b.shapes.forEach(function (s) {
+    if (!skin) b.shapes.forEach(function (s) {
       var x0 = Math.min(s.x0, s.x1);
       var x1 = Math.max(s.x0, s.x1);
       var y0 = Math.min(s.y0, s.y1);
@@ -1586,6 +2228,8 @@
       ctx.stroke();
       ctx.globalAlpha = 1;
     }
+
+    drawBoom(ctx, view, 'front');
   }
 
   var STATUS_TEXT = {
@@ -1741,11 +2385,17 @@
 
     var force = appliedForce();
     var held = simBaseHeld();
+    var wasFallen = sim.state.fallen;
     S.advance(sim.body, sim.state, dt, force, held);
+    if (sim.state.fallen && !wasFallen) fireBoom(sim.body, sim.state);
+    updateBoom(dt);
     drawSim(dt);
     renderSimReadouts();
 
-    if (sim.dragForce == null && S.isIdle(sim.body, sim.state, force, held) && viewSettled()) {
+    /* isIdle says yes the moment it is down, which would stop the loop on the
+     * impact frame and freeze the blast at one frame old. */
+    if (sim.dragForce == null && S.isIdle(sim.body, sim.state, force, held) &&
+        viewSettled() && !boomAlive()) {
       stopSimLoop();
       return;
     }

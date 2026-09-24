@@ -25,16 +25,45 @@
   <body data-mode="pole">
     <div class="wrap">
       <header class="masthead">
-        <h1>Tipping Point</h1>
-        <p class="pole-only">
-          A pole standing up from the centre of a baseplate. Enter the weights and sizes
-          and see how hard you'd have to push at the top to tip the whole thing over.
-        </p>
-        <p class="led-only">
-          An LED wall built onto the front of ballasted truss uprights, standing in for a
-          ground support structure. Enter the wall and see how many uprights it takes, how
-          much ballast each one needs, and what wind it will stand up to.
-        </p>
+        <div class="masthead-text">
+          <h1>Tipping Point</h1>
+          <p class="pole-only">
+            A pole standing up from the centre of a baseplate. Enter the weights and sizes
+            and see how hard you'd have to push at the top to tip the whole thing over.
+          </p>
+          <p class="led-only">
+            An LED wall built onto the front of ballasted truss uprights, standing in for a
+            ground support structure. Enter the wall and see how many uprights it takes, how
+            much ballast each one needs, and what wind it will stand up to.
+          </p>
+        </div>
+
+        <!-- Both of these set what the whole page is, not what one panel holds,
+             so they live up here where they can be found from the first screen
+             rather than two panels down inside the form. -->
+        <div class="masthead-controls">
+          <div class="seg mode-toggle" role="radiogroup" aria-label="What you are working out">
+            <label>
+              <input type="radio" name="calc-mode" value="pole" checked />
+              <span>Single pole</span>
+            </label>
+            <label>
+              <input type="radio" name="calc-mode" value="led" />
+              <span>LED wall</span>
+            </label>
+          </div>
+
+          <div class="seg units-toggle" role="radiogroup" aria-label="Unit system">
+            <label>
+              <input type="radio" name="unit-system" value="metric" checked />
+              <span>Metric</span>
+            </label>
+            <label>
+              <input type="radio" name="unit-system" value="imperial" />
+              <span>Imperial</span>
+            </label>
+          </div>
+        </div>
       </header>
 
       <main class="layout">
@@ -144,33 +173,13 @@
             <span class="led-only">The wall</span>
           </h2>
 
-          <div class="seg mode-toggle" role="radiogroup" aria-label="What you are working out">
-            <label>
-              <input type="radio" name="calc-mode" value="pole" checked />
-              <span>Single pole</span>
-            </label>
-            <label>
-              <input type="radio" name="calc-mode" value="led" />
-              <span>LED wall</span>
-            </label>
-          </div>
-
-          <div class="seg units-toggle" role="radiogroup" aria-label="Unit system">
-            <label>
-              <input type="radio" name="unit-system" value="metric" checked />
-              <span>Metric</span>
-            </label>
-            <label>
-              <input type="radio" name="unit-system" value="imperial" />
-              <span>Imperial</span>
-            </label>
-          </div>
-
           <div class="pole-only presets-block">
             <p class="presets-label" id="presets-label">Start with something</p>
             <div class="presets" id="pole-presets" role="group" aria-labelledby="presets-label"></div>
             <p class="hint">
-              Typical figures for each — change anything you disagree with.
+              Typical figures for each — change anything you disagree with. The canvas
+              draws the object; the sums are still the baseplate and pole in the diagram
+              below. Press the same one again to take the drawing off.
             </p>
           </div>
 

@@ -45,6 +45,10 @@
   --screen-line: #151a22;
   --ballast: #7b8494;
 
+  /* Read by the canvas so the object artwork can pick a light or dark set of
+   * its own colours. Not used by any CSS rule. */
+  --sim-dark: 0;
+
   --radius: 14px;
   --radius-sm: 9px;
   --shadow: 0 1px 2px rgba(16, 24, 40, 0.05), 0 8px 24px -12px rgba(16, 24, 40, 0.14);
@@ -82,6 +86,7 @@
     --screen: #212a38;
     --screen-line: #0a0d12;
     --ballast: #4d5766;
+    --sim-dark: 1;
     --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 10px 26px -14px rgba(0, 0, 0, 0.7);
   }
 }
@@ -107,6 +112,7 @@
   --screen: #212a38;
   --screen-line: #0a0d12;
   --ballast: #4d5766;
+  --sim-dark: 1;
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 10px 26px -14px rgba(0, 0, 0, 0.7);
 }
 
@@ -140,6 +146,49 @@ body {
 
 .masthead {
   padding: 22px 4px 14px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px 24px;
+}
+
+.masthead-text {
+  min-width: 0;
+  flex: 1 1 22rem;
+}
+
+/* The two controls that set what the whole page is. Side by side where there
+ * is room, stacked full width on a phone so neither is squeezed below a
+ * comfortable target. */
+.masthead-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  flex: 0 1 auto;
+}
+
+.masthead-controls .seg {
+  flex: 0 0 auto;
+  margin: 0;
+  align-items: stretch;
+}
+
+/* "Single pole" wrapping to two lines left the two controls different
+ * heights, which read as a mistake rather than a pair. */
+.masthead-controls .seg span {
+  white-space: nowrap;
+  font-size: 0.85rem;
+}
+
+@media (max-width: 599px) {
+  .masthead-controls {
+    width: 100%;
+  }
+
+  .masthead-controls .seg {
+    flex: 1 1 100%;
+  }
 }
 
 .masthead h1 {
@@ -209,10 +258,6 @@ body {
 body[data-mode="pole"] .led-only,
 body[data-mode="led"] .pole-only {
   display: none !important;
-}
-
-.mode-toggle {
-  margin-bottom: 10px;
 }
 
 .mode-toggle span {
@@ -625,9 +670,6 @@ select:disabled {
   font-variant-numeric: tabular-nums;
 }
 
-.units-toggle {
-  margin-bottom: 16px;
-}
 
 /* advanced disclosure */
 
@@ -1429,5 +1471,17 @@ details.notes-block li {
 }
 
 .preset-chip:hover span {
+  color: inherit;
+}
+
+/* The chip whose artwork the canvas is currently wearing. Pressing it again
+ * takes the costume off, so it needs to read as a state, not just a button. */
+.preset-chip[aria-pressed="true"] {
+  border-color: var(--force);
+  box-shadow: inset 0 0 0 1px var(--force);
+  color: var(--force);
+}
+
+.preset-chip[aria-pressed="true"] span {
   color: inherit;
 }
