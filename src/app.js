@@ -350,6 +350,11 @@
   function togglePresetSkin(shape) {
     activeSkin = activeSkin === shape ? null : shape;
     markActivePreset();
+    /* The canvas is only redrawn on a simulation frame, and standing still
+     * there are none — so without this the costume comes off in the state but
+     * stays on the screen until something else moves. */
+    drawSim();
+    renderSimReadouts();
   }
 
   function markActivePreset() {
@@ -1034,6 +1039,7 @@
     crossedAt: 0, // when it last passed the point of no return, for the flash
     load: null, // LED mode: where the load acts and at what angle
     lastStatus: '',
+    lastLabel: '',
     palette: null,
     boom: null, // the blast, while one is burning
     hintShown: true
@@ -1675,7 +1681,9 @@
   function skinNamed() {
     if (!currentSkin()) return '';
     var match = POLE_PRESETS.filter(function (o) { return o.shape === activeSkin; })[0];
-    return match ? ' of a ' + match.label.toLowerCase() : '';
+    /* Named, not described: lower-casing turned these into "a christmas tree"
+     * and "a a-board", and article-plus-case is not worth the cleverness. */
+    return match ? ' \u2014 ' + match.label : '';
   }
 
   function currentSkin() {
@@ -2521,6 +2529,11 @@
     /* Announce only when the situation actually changes, not every frame — and
      * say it the way the visible line says it, which in LED mode is not the
      * pole wording and depends on where the load is being put on. */
+    var said = bits[0] || '';
+    var loadSaid = led && sim.load
+      ? ' Load at ' + sim.load.point.what + ', ' + fmtLength(sim.load.point.y) + ' up.'
+      : '';
+
     if (status !== sim.lastStatus) {
       /* The one moment in the whole app worth marking: the plumb line has
        * crossed the pivot and its own weight is now doing the work. Until now
@@ -2529,16 +2542,21 @@
         sim.crossedAt = (window.performance || Date).now();
       }
       sim.lastStatus = status;
-      var said = bits[0] || '';
-      var loadSaid = led && sim.load
-        ? ' Load at ' + sim.load.point.what + ', ' + fmtLength(sim.load.point.y) + ' up.'
-        : '';
       $('sim-announce').textContent = said + loadSaid;
-      $('sim-canvas').setAttribute(
-        'aria-label',
-        'Simulation' + skinNamed() + ': ' + said + loadSaid +
-          ' Leaning ' + fmt(tilt, 1) + ' degrees.'
-      );
+    }
+
+    /* The canvas label is not a live region — nothing reads it aloud unbidden,
+     * it is read on demand — so unlike the announcement it tracks whatever is
+     * currently true, including which object the canvas is wearing. Putting it
+     * behind the status guard above meant picking an object never reached it,
+     * because picking one does not change the status. Written only when the
+     * text actually differs, so a fall is not sixty attribute writes a second
+     * of identical string. */
+    var label = 'Simulation' + skinNamed() + ': ' + said + loadSaid +
+      ' Leaning ' + fmt(tilt, 1) + ' degrees.';
+    if (label !== sim.lastLabel) {
+      sim.lastLabel = label;
+      $('sim-canvas').setAttribute('aria-label', label);
     }
 
     /* Bars share a scale, set by the righting moment when upright — so at the
