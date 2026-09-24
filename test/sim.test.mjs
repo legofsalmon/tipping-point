@@ -483,3 +483,39 @@ test('the lift to the balance point is the energy-to-tip figure', () => {
   const c = S.cog(body, S.makeState());
   near(body.weight * c.riseToBalance, result.chosen.energyToTip, 1e-9);
 });
+
+/*
+ * The canvas artwork is drawn against the footprint and the top of the object,
+ * in coordinates measured from the pivot. These are the two numbers it reads,
+ * so they are pinned here: a costume that silently stops lining up with the
+ * body it is painted on would otherwise be caught only by eye.
+ */
+test('the body reports its footprint half-width', () => {
+  const result = P.solve({ ...baseline, plateLength: 0.9, plateWidth: 0.5 });
+  const body = S.makeBody(result);
+
+  // it tips the easy way, over the narrow side, so the half-width is 0.25
+  assert.equal(result.chosen.leverArm, 0.25);
+  assert.equal(body.halfBase, 0.25);
+});
+
+test('halfBase is the footprint, not the distance to the centre of gravity', () => {
+  // with the load off the centreline the two part company, and the artwork
+  // wants the footprint
+  const body = S.makeBodyFromParts({
+    pivotX: 0.4,
+    parts: [{ mass: 10, x: 0.1, y: 1, icm: 0 }],
+    shapes: [{ x0: -0.4, y0: 0, x1: 0.4, y1: 0.02, role: 'plate' }]
+  });
+  near(body.d, 0.3); // pivot back to the centre of gravity
+  assert.equal(body.halfBase, undefined); // only makeBody knows the footprint
+});
+
+test('the end point is where the fall lands, measured from the pivot', () => {
+  const result = P.solve({ ...baseline, poleLength: 2, plateThickness: 0.1 });
+  const body = S.makeBody(result);
+
+  // the top of the pole is what touches down, on the centreline
+  assert.equal(body.endPoint.y, result.poleTop);
+  assert.equal(body.endPoint.x, -result.chosen.leverArm);
+});

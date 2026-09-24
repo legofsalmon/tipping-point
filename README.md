@@ -31,6 +31,22 @@ no server and no network once it has loaded.
 
 Open `index.html`. That's it.
 
+Metric and Imperial sit in the masthead, next to the switch between the single
+pole and the LED wall. Both change what the whole page is rather than what one
+panel holds, which is why they live up there rather than inside the form.
+
+In single-pole mode, **Start with something** fills the fields from a typical
+object and draws it on the canvas — a wheelie bin as a wheelie bin, a Christmas
+tree as a Christmas tree. The drawing is a costume over the same baseplate and
+pole the sums are about: it stretches to whatever you type next, it changes no
+number, and the side-view diagram underneath still shows the plate and the pole
+themselves. Press the same one again to take it off.
+
+Knock something over and it goes off. That is aftermath and nothing else — the
+moments stop being reported the instant it is down, exactly as they did before,
+and the wreck lies where the physics left it. With `prefers-reduced-motion` set
+it is a ring and a puff of smoke, with no shake and nothing thrown.
+
 For offline use and a proper app icon, install it:
 
 | Platform | How |
