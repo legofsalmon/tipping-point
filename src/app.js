@@ -1512,52 +1512,98 @@
     heater: [
       {"t":"poly","pts":[[-1,0],[1,0],[0.98,0.026],[-0.98,0.026]],"fill":"steelDark","stroke":"black","w":0.09},
       {"t":"poly","pts":[[-0.98,0.026],[0.98,0.026],[0.85,0.056],[-0.85,0.056]],"fill":"steel","stroke":"black","w":0.09},
-      {"t":"poly","pts":[[-0.84,0.054],[0.84,0.054],[0.76,0.545],[-0.76,0.545]],"fill":"steel","stroke":"black","w":0.09},
-      {"t":"poly","pts":[[-0.54,0.064],[-0.23,0.064],[-0.21,0.54],[-0.48,0.54]],"fill":"chrome","stroke":null,"alpha":0.6},
+      {"t":"poly","pts":[[-0.84,0.054],[0.84,0.054],[0.79,0.545],[-0.79,0.545]],"fill":"steel","stroke":"black","w":0.09},
+      {"t":"poly","pts":[[-0.6,0.075],[-0.22,0.075],[-0.21,0.47],[-0.56,0.47]],"fill":"chrome","stroke":null,"alpha":0.6},
       {"t":"line","pts":[[-0.82,0.092],[0.82,0.092]],"stroke":"steelDark","w":0.05,"alpha":0.8},
-      {"t":"line","pts":[[0.48,0.14],[0.44,0.45]],"stroke":"steelDark","w":0.06},
-      {"t":"line","pts":[[0.14,0.14],[0.14,0.45]],"stroke":"steelDark","w":0.06},
-      {"t":"line","pts":[[0.14,0.14],[0.48,0.14]],"stroke":"steelDark","w":0.06},
-      {"t":"line","pts":[[0.14,0.45],[0.44,0.45]],"stroke":"steelDark","w":0.06},
-      {"t":"ellipse","cu":0.3,"cv":0.29,"ru":0.075,"rv":0.011,"fill":"plastic","stroke":null},
-      {"t":"poly","pts":[[-0.77,0.542],[0.77,0.542],[0.18,0.6],[-0.18,0.6]],"fill":"steelDark","stroke":"black","w":0.09},
+      {"t":"poly","pts":[[0.1,0.135],[0.52,0.135],[0.48,0.47],[0.1,0.47]],"stroke":"steelDark","w":0.07},
+      {"t":"line","pts":[[0.2,0.3],[0.4,0.3]],"stroke":"steelDark","w":0.08},
+      {"t":"poly","pts":[[-0.8,0.542],[0.8,0.542],[0.18,0.602],[-0.18,0.602]],"fill":"steelDark","stroke":"black","w":0.09},
       {"t":"rect","u0":-0.17,"v0":0.594,"u1":0.17,"v1":0.782,"fill":"steel","stroke":"black","w":0.08},
-      {"t":"line","pts":[[-0.06,0.604],[-0.06,0.774]],"stroke":"chrome","w":0.075,"alpha":0.8},
       {"t":"rect","u0":-0.3,"v0":0.746,"u1":0.3,"v1":0.79,"fill":"plastic","stroke":"black","w":0.08},
       {"t":"poly","pts":[[0.3,0.756],[0.54,0.75],[0.54,0.782],[0.3,0.784]],"fill":"black","stroke":"black","w":0.05},
       {"t":"poly","pts":[[-0.7,0.786],[0.7,0.786],[0.67,0.812],[-0.67,0.812]],"fill":"steelDark","stroke":"black","w":0.09},
       {"t":"rect","u0":-0.67,"v0":0.808,"u1":0.67,"v1":0.874,"fill":"plasticLight","stroke":"black","w":0.09},
+      {"t":"rect","u0":-0.63,"v0":0.818,"u1":0.63,"v1":0.864,"fill":"amber","stroke":null,"alpha":0.8},
       {"t":"line","pts":[[-0.34,0.812],[-0.34,0.87]],"stroke":"black","w":0.05,"alpha":0.6},
       {"t":"line","pts":[[0,0.812],[0,0.87]],"stroke":"black","w":0.05,"alpha":0.6},
       {"t":"line","pts":[[0.34,0.812],[0.34,0.87]],"stroke":"black","w":0.05,"alpha":0.6},
       {"t":"line","pts":[[-0.63,0.841],[0.63,0.841]],"stroke":"black","w":0.045,"alpha":0.5},
       {"t":"poly","pts":[[-0.67,0.872],[0.67,0.872],[0.7,0.898],[-0.7,0.898]],"fill":"steelDark","stroke":"black","w":0.09},
-      {"t":"poly","pts":[[-1.82,0.872],[-1.48,0.906],[-1.08,0.936],[-0.66,0.962],[-0.28,0.98],[0,0.987],[0.28,0.98],[0.66,0.962],[1.08,0.936],[1.48,0.906],[1.82,0.872],[1.62,0.864],[1.02,0.888],[0,0.902],[-1.02,0.888],[-1.62,0.864]],"fill":"steel","stroke":"black","w":0.1},
-      {"t":"poly","pts":[[-1.3,0.922],[-0.6,0.966],[-0.2,0.982],[-0.26,0.974],[-0.64,0.953],[-1.26,0.912]],"fill":"chrome","stroke":null,"alpha":0.75},
-      {"t":"poly","pts":[[-1.62,0.864],[-1.02,0.888],[0,0.902],[1.02,0.888],[1.62,0.864],[1.56,0.874],[0,0.914],[-1.56,0.874]],"fill":"shadow","stroke":null},
-      {"t":"line","pts":[[-1.58,0.89],[-1.26,0.917]],"stroke":"steelDark","w":0.05,"alpha":0.7},
-      {"t":"line","pts":[[1.58,0.89],[1.26,0.917]],"stroke":"steelDark","w":0.05,"alpha":0.7},
-      {"t":"poly","pts":[[-0.26,0.984],[0.26,0.984],[0.17,1.006],[-0.17,1.006]],"fill":"steelDark","stroke":"black","w":0.07}
+      {"t":"poly","pts":[[-1.86,0.878],[-1.5,0.91],[-1.08,0.939],[-0.66,0.969],[-0.28,0.988],[0,0.996],[0.28,0.988],[0.66,0.969],[1.08,0.939],[1.5,0.91],[1.86,0.878],[1.86,0.858],[1.42,0.874],[0.78,0.89],[0,0.898],[-0.78,0.89],[-1.42,0.874],[-1.86,0.858]],"fill":"steel","stroke":"black","w":0.1},
+      {"t":"poly","pts":[[-1.3,0.922],[-0.6,0.971],[-0.2,0.988],[-0.26,0.98],[-0.64,0.958],[-1.26,0.912]],"fill":"chrome","stroke":null,"alpha":0.75},
+      {"t":"poly","pts":[[-1.86,0.858],[-1.42,0.874],[-0.78,0.89],[0,0.898],[0.78,0.89],[1.42,0.874],[1.86,0.858],[1.82,0.87],[0.78,0.902],[0,0.91],[-0.78,0.902],[-1.82,0.87]],"fill":"shadow","stroke":null},
+      {"t":"line","pts":[[-1.66,0.892],[-1.3,0.92]],"stroke":"steelDark","w":0.05,"alpha":0.7},
+      {"t":"line","pts":[[1.66,0.892],[1.3,0.92]],"stroke":"steelDark","w":0.05,"alpha":0.7},
+      {"t":"ellipse","cu":0,"cv":0.99,"ru":0.38,"rv":0.01,"fill":"steelDark","stroke":"steelDark","w":0.05}
     ],
 
     // A-board
     aboard: [
-      {"t":"poly","pts":[[-0.21,1],[0.01,1],[-0.78,0],[-1,0]],"fill":"steelDark","stroke":"black"},
-      {"t":"poly","pts":[[-0.21,1],[0.01,1],[-0.78,0],[-1,0]],"fill":"shadow","alpha":0.32},
-      {"t":"poly","pts":[[-0.855,0.055],[-0.735,0.055],[-0.78,0],[-1,0]],"fill":"plastic","stroke":"black"},
-      {"t":"line","pts":[[0.212,0.3],[0.06,0.252],[-0.1,0.228],[-0.28,0.23],[-0.44,0.262],[-0.545,0.31]],"stroke":"black","w":0.06,"alpha":0.55},
-      {"t":"line","pts":[[0.212,0.3],[0.06,0.252],[-0.1,0.228],[-0.28,0.23],[-0.44,0.262],[-0.545,0.31]],"stroke":"chrome","w":0.034},
-      {"t":"poly","pts":[[-0.155,1],[0.395,1],[1,0],[0.45,0]],"fill":"steelDark","stroke":"black"},
-      {"t":"poly","pts":[[-0.0224,0.88],[0.4076,0.88],[0.8795,0.1],[0.4495,0.1]],"fill":"white","stroke":"black"},
-      {"t":"poly","pts":[[0.02,0.84],[0.375,0.84],[0.845,0.145],[0.49,0.145]],"stroke":"steelDark","alpha":0.45,"w":0.014},
-      {"t":"poly","pts":[[0.395,1],[1,0],[0.895,0],[0.29,1]],"fill":"shadow","alpha":0.3},
-      {"t":"poly","pts":[[0.485,0.055],[1.035,0.055],[1,0],[0.45,0]],"fill":"plastic","stroke":"black"},
-      {"t":"poly","pts":[[-0.26,0.95],[0.44,0.95],[0.41,1.032],[-0.23,1.032]],"fill":"plastic","stroke":"black"},
-      {"t":"ellipse","cu":0.09,"cv":0.992,"ru":0.085,"rv":0.024,"fill":"chrome","stroke":"black"},
-      {"t":"ellipse","cu":0.055,"cv":0.845,"ru":0.04,"rv":0.013,"fill":"chrome","stroke":"black"},
-      {"t":"ellipse","cu":0.33,"cv":0.845,"ru":0.04,"rv":0.013,"fill":"chrome","stroke":"black"},
-      {"t":"ellipse","cu":0.51,"cv":0.14,"ru":0.04,"rv":0.013,"fill":"chrome","stroke":"black"},
-      {"t":"ellipse","cu":0.8,"cv":0.14,"ru":0.04,"rv":0.013,"fill":"chrome","stroke":"black"}
+      {"t":"poly","pts":[[-0.57,0.9],[-0.23,0.985],[-0.75,0],[-1,0]],"fill":"steelDark","stroke":"black"},
+      {"t":"poly","pts":[[-0.57,0.9],[-0.23,0.985],[-0.75,0],[-1,0]],"fill":"shadow","alpha":0.34},
+      {"t":"poly","pts":[[-0.57,0.9],[-0.23,0.985],[-0.225,0.93],[-0.565,0.845]],"fill":"plastic","stroke":"black"},
+      {"t":"line","pts":[[-0.46,0.8],[-0.82,0.12]],"stroke":"black","w":0.016,"alpha":0.42},
+      {"t":"poly","pts":[[-0.97,0.062],[-0.7173,0.062],[-0.75,0],[-1,0]],"fill":"plastic","stroke":"black"},
+      {"t":"line","pts":[[0.0188,0.3],[-0.11,0.248],[-0.26,0.226],[-0.43,0.245],[-0.5811,0.32]],"stroke":"black","w":0.056,"alpha":0.55},
+      {"t":"line","pts":[[0.0188,0.3],[-0.11,0.248],[-0.26,0.226],[-0.43,0.245],[-0.5811,0.32]],"stroke":"chrome","w":0.03},
+      {"t":"poly","pts":[[-0.26,0.99],[0.6,0.925],[1,0],[0.14,0]],"fill":"steelDark","stroke":"black"},
+      {"t":"poly","pts":[[-0.1845,0.9393],[0.5633,0.8828],[0.9234,0.05],[0.1748,0.05]],"fill":"plastic","stroke":"black"},
+      {"t":"poly","pts":[[-0.0853,0.8918],[0.4985,0.8477],[0.8261,0.09],[0.2386,0.09]],"fill":"white","stroke":"plastic"},
+      {"t":"poly","pts":[[0.0037,0.82],[0.4504,0.82],[0.7445,0.14],[0.2784,0.14]],"stroke":"grey","alpha":0.32,"w":0.012},
+      {"t":"poly","pts":[[0.055,0.7],[0.34,0.665],[0.62,0.34],[0.335,0.375]],"fill":"glass","alpha":0.18},
+      {"t":"line","pts":[[-0.245,0.986],[0.585,0.924]],"stroke":"chrome","w":0.024,"alpha":0.8},
+      {"t":"poly","pts":[[0.6,0.925],[1,0],[0.9,0],[0.505,0.932]],"fill":"shadow","alpha":0.22},
+      {"t":"poly","pts":[[0.1149,0.062],[0.9732,0.062],[1,0],[0.14,0]],"fill":"plastic","stroke":"black"},
+      {"t":"ellipse","cu":-0.25,"cv":0.962,"ru":0.048,"rv":0.017,"fill":"chrome","stroke":"black"},
+      {"t":"ellipse","cu":-0.02,"cv":0.855,"ru":0.038,"rv":0.011,"fill":"chrome","stroke":"black"},
+      {"t":"ellipse","cu":0.44,"cv":0.815,"ru":0.038,"rv":0.011,"fill":"chrome","stroke":"black"},
+      {"t":"ellipse","cu":0.285,"cv":0.135,"ru":0.038,"rv":0.011,"fill":"chrome","stroke":"black"},
+      {"t":"ellipse","cu":0.76,"cv":0.135,"ru":0.038,"rv":0.011,"fill":"chrome","stroke":"black"}
+    ],
+
+    // Road sign
+    sign: [
+      {"t":"rect","u0":-1,"v0":0,"u1":1,"v1":0.012,"fill":"steelDark","stroke":"black","w":0.09},
+      {"t":"poly","pts":[[-0.98,0.012],[0.98,0.012],[0.5,0.034],[-0.5,0.034]],"fill":"steel","stroke":"black","w":0.09},
+      {"t":"ellipse","cu":-0.75,"cv":0.021,"ru":0.135,"rv":0.0128,"fill":"chrome","stroke":"black","w":0.05},
+      {"t":"ellipse","cu":0.75,"cv":0.021,"ru":0.135,"rv":0.0128,"fill":"chrome","stroke":"black","w":0.05},
+      {"t":"poly","pts":[[-0.48,0.032],[0.48,0.032],[0.27,0.062],[-0.27,0.062]],"fill":"steelDark","stroke":"black","w":0.09},
+      {"t":"rect","u0":-0.2,"v0":0.054,"u1":0.2,"v1":0.878,"fill":"steel","stroke":"black","w":0.09},
+      {"t":"rect","u0":-0.155,"v0":0.064,"u1":-0.06,"v1":0.868,"fill":"chrome","alpha":0.55},
+      {"t":"rect","u0":0.08,"v0":0.064,"u1":0.2,"v1":0.868,"fill":"shadow","alpha":0.3},
+      {"t":"rect","u0":-0.19,"v0":0.06,"u1":0.19,"v1":0.134,"fill":"shadow","alpha":0.35},
+      {"t":"rect","u0":-0.27,"v0":0.098,"u1":0.27,"v1":0.128,"fill":"steelDark","stroke":"black","w":0.08},
+      {"t":"rect","u0":-0.32,"v0":0.572,"u1":0.32,"v1":0.626,"fill":"steelDark","stroke":"black","w":0.08},
+      {"t":"rect","u0":-0.3,"v0":0.44,"u1":0.3,"v1":0.488,"fill":"steelDark","stroke":"black","w":0.08},
+      {"t":"ellipse","cu":0.08,"cv":0.794,"ru":2.063,"rv":0.195,"fill":"plastic"},
+      {"t":"ellipse","cu":0,"cv":0.8,"ru":2.063,"rv":0.195,"fill":"white","stroke":"black","w":0.09},
+      {"t":"ellipse","cu":0,"cv":0.8,"ru":1.947,"rv":0.184,"fill":"red","stroke":"redDark","w":0.05},
+      {"t":"ellipse","cu":0,"cv":0.8,"ru":1.476,"rv":0.1395,"fill":"white","stroke":"redDark","w":0.06}
+    ],
+
+    // Christmas tree
+    tree: [
+      {"t":"poly","pts":[[-1,0],[1,0],[1.32,0.112],[-1.32,0.112]],"fill":"brown","stroke":"brownDark","w":0.07},
+      {"t":"poly","pts":[[-1,0],[1,0],[1.06,0.022],[-1.06,0.022]],"fill":"brownDark","alpha":0.55},
+      {"t":"poly","pts":[[-1.24,0.03],[-0.72,0.03],[-0.86,0.108],[-1.3,0.108]],"fill":"brown","alpha":0.45},
+      {"t":"rect","u0":-1.42,"v0":0.112,"u1":1.42,"v1":0.163,"fill":"brown","stroke":"brownDark","w":0.07},
+      {"t":"rect","u0":-1.42,"v0":0.112,"u1":1.42,"v1":0.124,"fill":"brownDark","alpha":0.5},
+      {"t":"rect","u0":-0.28,"v0":0.15,"u1":0.28,"v1":0.3,"fill":"brownDark","stroke":"black","w":0.06},
+      {"t":"poly","pts":[[-1.8,0.221],[-1.44,0.282],[-1.08,0.366],[-0.72,0.407],[-0.36,0.467],[0,0.475],[0.36,0.467],[0.72,0.407],[1.08,0.366],[1.44,0.282],[1.8,0.221],[1.35,0.245],[0.9,0.221],[0.45,0.304],[0,0.288],[-0.45,0.304],[-0.9,0.221],[-1.35,0.245]],"fill":"greenDark","stroke":"greenDark","w":0.06},
+      {"t":"poly","pts":[[-1.8,0.205],[-1.44,0.282],[-1.08,0.35],[-0.72,0.407],[-0.36,0.451],[0,0.475],[0,0.529],[-0.36,0.505],[-0.72,0.461],[-1.08,0.404],[-1.44,0.336],[-1.8,0.259]],"fill":"greenLight","alpha":0.5},
+      {"t":"poly","pts":[[-1.45,0.4],[-1.16,0.459],[-0.87,0.539],[-0.58,0.579],[-0.29,0.637],[0,0.645],[0.29,0.637],[0.58,0.579],[0.87,0.539],[1.16,0.459],[1.45,0.4],[1.088,0.422],[0.725,0.402],[0.363,0.479],[0,0.467],[-0.362,0.479],[-0.725,0.402],[-1.087,0.422]],"fill":"green","stroke":"greenDark","w":0.06},
+      {"t":"poly","pts":[[-1.45,0.385],[-1.16,0.459],[-0.87,0.524],[-0.58,0.579],[-0.29,0.622],[0,0.645],[0,0.697],[-0.29,0.674],[-0.58,0.631],[-0.87,0.576],[-1.16,0.511],[-1.45,0.437]],"fill":"greenLight","alpha":0.5},
+      {"t":"poly","pts":[[-1.08,0.565],[-0.81,0.657],[-0.54,0.71],[-0.27,0.775],[0,0.79],[0.27,0.775],[0.54,0.71],[0.81,0.657],[1.08,0.565],[0.72,0.564],[0.36,0.638],[0,0.636],[-0.36,0.638],[-0.72,0.564]],"fill":"green","stroke":"greenDark","w":0.06},
+      {"t":"poly","pts":[[-1.08,0.565],[-0.81,0.644],[-0.54,0.71],[-0.27,0.762],[0,0.79],[0,0.835],[-0.27,0.807],[-0.54,0.755],[-0.81,0.689],[-1.08,0.61]],"fill":"greenLight","alpha":0.5},
+      {"t":"poly","pts":[[-0.68,0.72],[-0.51,0.801],[-0.34,0.849],[-0.17,0.906],[0,0.92],[0.17,0.906],[0.34,0.849],[0.51,0.801],[0.68,0.72],[0.453,0.72],[0.227,0.784],[0,0.784],[-0.227,0.784],[-0.453,0.72]],"fill":"green","stroke":"greenDark","w":0.06},
+      {"t":"poly","pts":[[-0.68,0.72],[-0.51,0.79],[-0.34,0.849],[-0.17,0.895],[0,0.92],[0,0.96],[-0.17,0.935],[-0.34,0.889],[-0.51,0.83],[-0.68,0.76]],"fill":"greenLight","alpha":0.5},
+      {"t":"line","pts":[[0,0.905],[0,0.965]],"stroke":"brownDark","w":0.07},
+      {"t":"poly","pts":[[0,1.044],[-0.124,1.003],[-0.477,1.001],[-0.201,0.974],[-0.295,0.932],[0,0.956],[0.295,0.932],[0.201,0.974],[0.477,1.001],[0.124,1.003]],"fill":"gold","stroke":"amber","w":0.06},
+      {"t":"ellipse","cu":-1.12,"cv":0.3,"ru":0.13,"rv":0.016,"fill":"red","stroke":"redDark","w":0.05},
+      {"t":"ellipse","cu":0.98,"cv":0.345,"ru":0.121,"rv":0.015,"fill":"gold","stroke":"amber","w":0.05},
+      {"t":"ellipse","cu":-0.55,"cv":0.5,"ru":0.121,"rv":0.015,"fill":"blue","stroke":"blueDark","w":0.05},
+      {"t":"ellipse","cu":0.72,"cv":0.655,"ru":0.113,"rv":0.014,"fill":"red","stroke":"redDark","w":0.05},
+      {"t":"ellipse","cu":-0.3,"cv":0.79,"ru":0.105,"rv":0.013,"fill":"gold","stroke":"amber","w":0.05}
     ]
   };
 
@@ -1704,6 +1750,11 @@
   /* A heat ramp, 0 hottest to 1 cold. Light backgrounds need deeper colours:
    * white-hot on white is just a hole in the page. */
   function hotMix(p, dark, alpha) {
+    return 'rgba(' + hotRgb(p, dark) + ',' + alpha + ')';
+  }
+
+  /** The same ramp as an "r,g,b" triple, for tinting a sprite. */
+  function hotRgb(p, dark) {
     var stops = dark
       ? [[255, 255, 245], [255, 232, 150], [255, 176, 48], [225, 92, 26], [120, 44, 22]]
       : [[255, 250, 226], [255, 206, 74], [243, 140, 24], [206, 62, 20], [104, 38, 20]];
@@ -1712,13 +1763,47 @@
     var f = x - i;
     var a = stops[i];
     var b = stops[i + 1] || a;
-    return 'rgba(' + Math.round(a[0] + (b[0] - a[0]) * f) + ',' +
+    return Math.round(a[0] + (b[0] - a[0]) * f) + ',' +
       Math.round(a[1] + (b[1] - a[1]) * f) + ',' +
-      Math.round(a[2] + (b[2] - a[2]) * f) + ',' + alpha + ')';
+      Math.round(a[2] + (b[2] - a[2]) * f);
   }
 
   function smokeColour(dark, alpha) {
     return dark ? 'rgba(150,158,168,' + alpha + ')' : 'rgba(96,104,114,' + alpha + ')';
+  }
+
+  /* A soft blob, drawn once and then blitted. Filling an arc per puff gives
+   * every one of them a hard rim, so a cloud reads as a pile of discs; and a
+   * gradient built per puff per frame would cost more than the blit. */
+  var blobSprites = {};
+
+  function blobSprite(key, rgb) {
+    if (blobSprites[key]) return blobSprites[key];
+    var size = 64;
+    var c = document.createElement('canvas');
+    c.width = size;
+    c.height = size;
+    var g = c.getContext('2d');
+    var grad = g.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+    grad.addColorStop(0, 'rgba(' + rgb + ',1)');
+    grad.addColorStop(0.45, 'rgba(' + rgb + ',0.6)');
+    grad.addColorStop(1, 'rgba(' + rgb + ',0)');
+    g.fillStyle = grad;
+    g.fillRect(0, 0, size, size);
+    blobSprites[key] = c;
+    return c;
+  }
+
+  function smokeSprite(dark) {
+    return blobSprite(dark ? 'smoke-d' : 'smoke-l',
+      dark ? '150,158,168' : '96,104,114');
+  }
+
+  /* Quantised to six steps so a handful of sprites covers the whole cooling
+   * range rather than one per fireball per frame. */
+  function fireSprite(age, dark) {
+    var step = Math.round(age * 5) / 5;
+    return blobSprite('fire-' + (dark ? 'd' : 'l') + step, hotRgb(step, dark));
   }
 
   function boomAlive() {
@@ -1994,17 +2079,11 @@
       if (p.kind === 'fire') {
         var fr2 = px(p.r * (1 + (p.grow - 1) * age));
         ctx.globalAlpha = Math.pow(fade, 0.7);
-        ctx.fillStyle = hotColour(age, dark, 1);
-        ctx.beginPath();
-        ctx.arc(sx, sy, fr2, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.drawImage(fireSprite(age, dark), sx - fr2, sy - fr2, fr2 * 2, fr2 * 2);
       } else if (p.kind === 'smoke' || p.kind === 'dust') {
         var sr = px(p.r * (1 + (p.grow - 1) * age));
-        ctx.globalAlpha = (p.kind === 'dust' ? 0.32 : 0.22) * Math.pow(fade, 1.3);
-        ctx.fillStyle = smokeColour(dark, 1);
-        ctx.beginPath();
-        ctx.arc(sx, sy, sr, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.globalAlpha = (p.kind === 'dust' ? 0.42 : 0.3) * Math.pow(fade, 1.3);
+        ctx.drawImage(smokeSprite(dark), sx - sr, sy - sr, sr * 2, sr * 2);
       } else if (p.kind === 'spark') {
         ctx.globalAlpha = Math.pow(fade, 0.8);
         ctx.strokeStyle = hotColour(age * 0.8, dark, 1);
