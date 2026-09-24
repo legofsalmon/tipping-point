@@ -1080,6 +1080,9 @@
 
   function dropPalette() {
     sim.palette = null;
+    /* The blast's sprites are tinted for one theme and its buffers are cut to
+     * one canvas size, so they go when the palette does. */
+    boomArt = null;
   }
 
   function simBaseHeld() {
@@ -1743,75 +1746,8 @@
 
   var BOOM_LIFE = 2.4; // seconds until the last ember dies
 
-  /* Memoised on a quantised key: without it this builds a fresh string for
-   * every particle on every frame, a couple of hundred throwaway allocations
-   * sixty times a second for colours that are indistinguishable anyway. */
-  var hotCache = {};
-
-  function hotColour(p, dark, alpha) {
-    var key = (dark ? 'd' : 'l') + Math.round(p * 40) + '_' + Math.round(alpha * 40);
-    var hit = hotCache[key];
-    if (hit) return hit;
-    return (hotCache[key] = hotMix(p, dark, alpha));
-  }
-
-  /* A heat ramp, 0 hottest to 1 cold. Light backgrounds need deeper colours:
-   * white-hot on white is just a hole in the page. */
-  function hotMix(p, dark, alpha) {
-    return 'rgba(' + hotRgb(p, dark) + ',' + alpha + ')';
-  }
-
-  /** The same ramp as an "r,g,b" triple, for tinting a sprite. */
-  function hotRgb(p, dark) {
-    var stops = dark
-      ? [[255, 255, 245], [255, 232, 150], [255, 176, 48], [225, 92, 26], [120, 44, 22]]
-      : [[255, 250, 226], [255, 206, 74], [243, 140, 24], [206, 62, 20], [104, 38, 20]];
-    var x = Math.max(0, Math.min(0.999, p)) * (stops.length - 1);
-    var i = Math.floor(x);
-    var f = x - i;
-    var a = stops[i];
-    var b = stops[i + 1] || a;
-    return Math.round(a[0] + (b[0] - a[0]) * f) + ',' +
-      Math.round(a[1] + (b[1] - a[1]) * f) + ',' +
-      Math.round(a[2] + (b[2] - a[2]) * f);
-  }
-
   function smokeColour(dark, alpha) {
     return dark ? 'rgba(150,158,168,' + alpha + ')' : 'rgba(96,104,114,' + alpha + ')';
-  }
-
-  /* A soft blob, drawn once and then blitted. Filling an arc per puff gives
-   * every one of them a hard rim, so a cloud reads as a pile of discs; and a
-   * gradient built per puff per frame would cost more than the blit. */
-  var blobSprites = {};
-
-  function blobSprite(key, rgb) {
-    if (blobSprites[key]) return blobSprites[key];
-    var size = 64;
-    var c = document.createElement('canvas');
-    c.width = size;
-    c.height = size;
-    var g = c.getContext('2d');
-    var grad = g.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
-    grad.addColorStop(0, 'rgba(' + rgb + ',1)');
-    grad.addColorStop(0.45, 'rgba(' + rgb + ',0.6)');
-    grad.addColorStop(1, 'rgba(' + rgb + ',0)');
-    g.fillStyle = grad;
-    g.fillRect(0, 0, size, size);
-    blobSprites[key] = c;
-    return c;
-  }
-
-  function smokeSprite(dark) {
-    return blobSprite(dark ? 'smoke-d' : 'smoke-l',
-      dark ? '150,158,168' : '96,104,114');
-  }
-
-  /* Quantised to six steps so a handful of sprites covers the whole cooling
-   * range rather than one per fireball per frame. */
-  function fireSprite(age, dark) {
-    var step = Math.round(age * 5) / 5;
-    return blobSprite('fire-' + (dark ? 'd' : 'l') + step, hotRgb(step, dark));
   }
 
   function boomAlive() {
@@ -1846,7 +1782,7 @@
     /* A ring of pressure, then the ground wave it drives outwards. */
     for (var r = 0; r < (calm ? 1 : 2); r += 1) {
       push({ kind: 'ring', back: true, t: -r * 0.05, life: calm ? 0.5 : 0.34,
-        r0: 0.06 * S0, r1: (calm ? 1.3 : 2.0 - r * 0.55) * S0, w: (0.13 - r * 0.05) * S0 });
+        r0: 0.06 * S0, r1: (calm ? 1.3 : 2.0 - r * 0.55) * S0, w: (0.05 - r * 0.018) * S0 });
     }
     push({ kind: 'wave', back: true, t: 0, life: calm ? 0.6 : 1.1,
       r0: 0.07 * S0, r1: (calm ? 1.4 : 2.8) * S0, w: 0.12 * S0 });
@@ -1854,7 +1790,7 @@
     if (!calm) {
       /* Tapered spikes off the centre. Nothing reads as an explosion faster,
        * and they are gone before they can wear out their welcome. */
-      var spikes = 11;
+      var spikes = 9;
       for (var sp0 = 0; sp0 < spikes; sp0 += 1) {
         var sa = (sp0 / spikes) * Math.PI * 2 + spread(-0.12, 0.12);
         push({ kind: 'spike', ang: sa, t: 0, life: spread(0.18, 0.3),
@@ -1866,23 +1802,25 @@
       /* Reduced motion still gets a moment — it just does not throw anything
        * at you or shake the page. */
       for (var q = 0; q < 6; q += 1) {
-        push({ kind: 'smoke', x: ox + spread(-0.15, 0.15) * S0, y: oy + spread(0, 0.12) * S0,
+        push({ kind: 'smoke', mask: q & 3, spin: spread(0, 6.28),
+          x: ox + spread(-0.15, 0.15) * S0, y: oy + spread(0, 0.12) * S0,
           vx: spread(-0.25, 0.25) * S0, vy: spread(0.2, 0.5) * S0,
           r: spread(0.09, 0.16) * S0, grow: 1.8, t: 0, life: spread(1.1, 1.6) });
       }
-      sim.boom = { t: 0, parts: parts, ox: ox, oy: oy, S: S0, shake: 0, calm: true };
+      sim.boom = { t: 0, parts: parts, ox: ox, oy: oy, S: S0, shake: 0, calm: true,
+        rect: null, blit: null };
       return;
     }
 
     // the fireball: a few fat blobs that cool from white to smoke
-    for (var i = 0; i < 14; i += 1) {
+    for (var i = 0; i < 11; i += 1) {
       push({ kind: 'fire', x: ox + spread(-0.1, 0.1) * S0, y: oy + spread(0, 0.14) * S0,
         vx: spread(-1.1, 1.1) * S0, vy: spread(0.3, 1.6) * S0,
         r: spread(0.07, 0.17) * S0, grow: spread(1.5, 2.3), t: 0, life: spread(0.4, 0.75) });
     }
 
     // sparks: fast, thin, gravity-bound, drawn as streaks along their travel
-    for (var j = 0; j < 120; j += 1) {
+    for (var j = 0; j < 70; j += 1) {
       var a = spread(-Math.PI * 0.96, Math.PI * 0.04); // mostly upward and out
       var sp = spread(2.5, 11) * S0;
       push({ kind: 'spark', x: ox, y: oy + 0.02 * S0,
@@ -1908,18 +1846,20 @@
     }
 
     // dust hugging the floor, rolling outwards
-    for (var m = 0; m < 34; m += 1) {
+    for (var m = 0; m < 24; m += 1) {
       var dir = Math.random() < 0.5 ? -1 : 1;
-      push({ kind: 'dust', back: true, x: ox + spread(-0.1, 0.1) * S0, y: oy + spread(0, 0.06) * S0,
+      push({ kind: 'dust', back: true, mask: m & 3, spin: spread(0, 6.28),
+        x: ox + spread(-0.1, 0.1) * S0, y: oy + spread(0, 0.06) * S0,
         vx: dir * spread(1.4, 4.6) * S0, vy: spread(0.05, 0.5) * S0,
-        r: spread(0.05, 0.12) * S0, grow: spread(2.2, 3.6), t: 0, life: spread(0.9, 1.4) });
+        r: spread(0.08, 0.17) * S0, grow: spread(2.0, 3.2), t: 0, life: spread(1.1, 1.7) });
     }
 
     // smoke that outlives the fire and shears sideways as it climbs
-    for (var n2 = 0; n2 < 24; n2 += 1) {
-      push({ kind: 'smoke', x: ox + spread(-0.22, 0.22) * S0, y: oy + spread(0.02, 0.3) * S0,
+    for (var n2 = 0; n2 < 20; n2 += 1) {
+      push({ kind: 'smoke', mask: n2 & 3, spin: spread(0, 6.28),
+        x: ox + spread(-0.22, 0.22) * S0, y: oy + spread(0.02, 0.3) * S0,
         vx: spread(-0.5, 0.5) * S0, vy: spread(0.35, 1.2) * S0,
-        r: spread(0.05, 0.13) * S0, grow: spread(2.4, 3.8), t: 0, life: spread(1.4, 2.1) });
+        r: spread(0.08, 0.18) * S0, grow: spread(2.2, 3.2), t: 0, life: spread(1.7, 2.35) });
     }
 
     // embers: the last thing still glowing, drifting down after everything else
@@ -1928,10 +1868,11 @@
       var es = spread(1.6, 5.5) * S0;
       push({ kind: 'ember', x: ox, y: oy + 0.03 * S0,
         vx: Math.cos(ea) * es, vy: -Math.sin(ea) * es,
-        t: 0, life: spread(1.6, 2.4), flick: spread(0, 6.28) });
+        t: 0, life: spread(1.9, 2.38), flick: spread(0, 6.28) });
     }
 
-    sim.boom = { t: 0, parts: parts, ox: ox, oy: oy, S: S0, shake: 1, calm: false };
+    sim.boom = { t: 0, parts: parts, ox: ox, oy: oy, S: S0, shake: 1, calm: false,
+      rect: null, blit: null };
   }
 
   function updateBoom(dt) {
@@ -2000,48 +1941,203 @@
     };
   }
 
-  /**
-   * @param {string} layer 'back' for what rolls out behind the wreck, 'front'
-   *   for what bursts in front of it. Drawn either side of the body so the
-   *   blast has some depth instead of sitting flat on top.
-   */
-  function drawBoom(ctx, view, layer) {
+  /* ---------------------------------------------------------------- *
+   * Compositing the blast
+   *
+   * Everything hot is accumulated into an offscreen buffer with `lighter`
+   * and only then laid onto the scene. That is the whole trick for working
+   * on both themes: adding light inside the buffer gives white-hot cores and
+   * translucent warm edges, but what lands on the page is an ordinary opaque
+   * blit, so a light background does not wash it out — which is exactly what
+   * it was doing when the fire was drawn straight onto the canvas.
+   *
+   * Dust gets a buffer of its own for a different reason: blitted as one mass
+   * it fades out as one cloud, where fading each puff separately dissolves it
+   * into a pile of visible discs.
+   * ---------------------------------------------------------------- */
+
+  var HEAT_STOPS = [
+    [0, 255, 253, 246], [0.18, 255, 238, 176], [0.42, 255, 190, 74],
+    [0.66, 232, 116, 32], [0.85, 168, 60, 22], [1, 74, 26, 16]
+  ];
+  var HEAT_STEPS = 15;
+
+  function heatRgb(t) {
+    t = Math.max(0, Math.min(1, t));
+    for (var i = 1; i < HEAT_STOPS.length; i += 1) {
+      var b = HEAT_STOPS[i];
+      if (t <= b[0]) {
+        var a = HEAT_STOPS[i - 1];
+        var k = (t - a[0]) / (b[0] - a[0]);
+        return [
+          Math.round(a[1] + (b[1] - a[1]) * k),
+          Math.round(a[2] + (b[2] - a[2]) * k),
+          Math.round(a[3] + (b[3] - a[3]) * k)
+        ];
+      }
+    }
+    return [74, 26, 16];
+  }
+
+  var boomArt = null; // sprite banks and offscreen layers, rebuilt on theme or size
+
+  function canvasOf(w, h) {
+    var c = document.createElement('canvas');
+    c.width = Math.max(1, Math.round(w));
+    c.height = Math.max(1, Math.round(h));
+    return c;
+  }
+
+  function radialMask(size, stops) {
+    var c = canvasOf(size, size);
+    var g = c.getContext('2d');
+    var gr = g.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+    stops.forEach(function (s) {
+      gr.addColorStop(s[0], 'rgba(255,255,255,' + s[1] + ')');
+    });
+    g.fillStyle = gr;
+    g.fillRect(0, 0, size, size);
+    return c;
+  }
+
+  function tintMask(mask, rgb) {
+    var c = canvasOf(mask.width, mask.height);
+    var x = c.getContext('2d');
+    x.drawImage(mask, 0, 0);
+    x.globalCompositeOperation = 'source-in';
+    x.fillStyle = 'rgb(' + rgb[0] + ',' + rgb[1] + ',' + rgb[2] + ')';
+    x.fillRect(0, 0, c.width, c.height);
+    return c;
+  }
+
+  /* A puff built from nine offset blobs rather than one circle. A circle
+   * always reads as a circle however soft its edge; this has a torn outline,
+   * and four of them with per-puff rotation stop the cloud repeating. */
+  function dustMask(k) {
+    var size = 104;
+    var c = canvasOf(size, size);
+    var g = c.getContext('2d');
+    var s = 9001 + k * 37;
+    var rnd = function () {
+      s = (s + 0x6d2b79f5) | 0;
+      var t = Math.imul(s ^ (s >>> 15), 1 | s);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+    for (var i = 0; i < 9; i += 1) {
+      var ang = rnd() * Math.PI * 2;
+      var d = (i === 0 ? 0 : 0.09 + rnd() * 0.27) * size;
+      var rad = (i === 0 ? 0.24 : 0.11 + rnd() * 0.125) * size;
+      var x = size / 2 + Math.cos(ang) * d;
+      var y = size / 2 + Math.sin(ang) * d * 0.82;
+      var gr = g.createRadialGradient(x, y, 0, x, y, rad);
+      gr.addColorStop(0, 'rgba(255,255,255,0.90)');
+      gr.addColorStop(0.5, 'rgba(255,255,255,0.66)');
+      gr.addColorStop(0.82, 'rgba(255,255,255,0.20)');
+      gr.addColorStop(1, 'rgba(255,255,255,0)');
+      g.fillStyle = gr;
+      g.fillRect(0, 0, size, size);
+    }
+    return c;
+  }
+
+  function boomArtFor(w, h, dark) {
+    if (boomArt && boomArt.w === w && boomArt.h === h && boomArt.dark === dark) return boomArt;
+
+    var soft = radialMask(72, [[0, 1], [0.18, 0.74], [0.45, 0.24], [1, 0]]);
+    var core = radialMask(72, [[0, 1], [0.3, 0.92], [0.6, 0.3], [1, 0]]);
+    var heat = [];
+    for (var i = 0; i < HEAT_STEPS; i += 1) {
+      heat.push(tintMask(soft, heatRgb(i / (HEAT_STEPS - 1))));
+    }
+    var dustRgb = dark ? [112, 108, 101] : [152, 146, 136];
+    var dust = [];
+    for (var k = 0; k < 4; k += 1) dust.push(tintMask(dustMask(k), dustRgb));
+
+    /* Under-sampled on purpose: the softness from scaling back up reads as
+     * bloom, and it is a third of the fill rate. */
+    var dpr = window.devicePixelRatio || 1;
+    var hotScale = Math.min(dpr * 0.5, 1.0);
+
+    boomArt = {
+      w: w, h: h, dark: dark,
+      heat: heat,
+      core: tintMask(core, [255, 253, 246]),
+      dust: dust,
+      hot: { c: canvasOf(w * hotScale, h * hotScale), s: hotScale },
+      /* A light page needs the whole ramp pushed cooler, or the hot end of it
+       * is indistinguishable from the paper behind it. */
+      bias: dark ? 0 : -0.1
+    };
+    return boomArt;
+  }
+
+  function heatSprite(art, t) {
+    var i = Math.round(Math.max(0, Math.min(1, t + art.bias)) * (HEAT_STEPS - 1));
+    return art.heat[Math.max(0, Math.min(HEAT_STEPS - 1, i))];
+  }
+
+  /** Fill both offscreen buffers for this frame. */
+  function renderBoomBuffers(view) {
     var boom = sim.boom;
-    if (!boom) return;
-    var wantBack = layer === 'back';
-    var dark = palette().dark;
+    var art = boomArtFor(view.w, view.h, palette().dark);
+    var hot = art.hot;
+
+    /* Compositing the whole canvas three times a frame is most of the cost of
+     * this effect, and the blast only ever occupies part of it. So the area
+     * actually touched is tracked and only that is cleared and blitted — the
+     * union of this frame's and the last's, since what moved has to be erased
+     * from where it was. */
+    var prev = boom.rect;
+    boom.rect = { x0: Infinity, y0: Infinity, x1: -Infinity, y1: -Infinity };
+    var clear = prev
+      ? { x0: prev.x0, y0: prev.y0, x1: prev.x1, y1: prev.y1 }
+      : { x0: 0, y0: 0, x1: view.w, y1: view.h };
+
+    var hgc = hot.c.getContext('2d');
+    hgc.setTransform(1, 0, 0, 1, 0, 0);
+    hgc.clearRect(clear.x0 * hot.s - 2, clear.y0 * hot.s - 2,
+      (clear.x1 - clear.x0) * hot.s + 4, (clear.y1 - clear.y0) * hot.s + 4);
+    hgc.setTransform(hot.s, 0, 0, hot.s, 0, 0);
+
+    /* Every draw below reports the box it touched. */
+    var mark = function (x, y, r) {
+      var box = boom.rect;
+      if (x - r < box.x0) box.x0 = x - r;
+      if (y - r < box.y0) box.y0 = y - r;
+      if (x + r > box.x1) box.x1 = x + r;
+      if (y + r > box.y1) box.y1 = y + r;
+    };
+
+    var hg = hot.c.getContext('2d');
     var px = function (metres) { return Math.max(0.4, metres * view.scale); };
 
-    ctx.save();
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
+    /* Nothing belongs under the floor. Clipping the dust here is also what
+     * turns the ground wave into the half-ellipse it looks like side-on. */
+    hg.beginPath();
+    hg.rect(-400, -400, view.w + 800, view.groundY + 400);
+    hg.clip();
+    hg.globalCompositeOperation = 'lighter';
 
-    /* The floor is opaque. Clipping to it also turns the ground wave into the
-     * half-ellipse a dust wave actually looks like seen from the side. */
-    ctx.beginPath();
-    ctx.rect(-400, -400, view.w + 800, view.groundY + 400);
-    ctx.clip();
+    var bx = view.sx(boom.ox);
+    var by = view.sy(boom.oy);
 
-    /* The flash comes first and is gone almost at once — it is what sells the
-     * impact frame, and it has to clear before it hides the wreck. */
-    if (!wantBack && !boom.calm && boom.t < 0.14) {
-      var fl = 1 - boom.t / 0.14;
-      var fx = view.sx(boom.ox);
-      var fy = view.sy(boom.oy);
-      var fr = px(boom.S * 1.5);
-      var grad = ctx.createRadialGradient(fx, fy, 0, fx, fy, fr);
-      grad.addColorStop(0, hotColour(0, dark, 0.95 * fl));
-      grad.addColorStop(0.45, hotColour(0.35, dark, 0.5 * fl));
-      grad.addColorStop(1, hotColour(0.6, dark, 0));
-      ctx.fillStyle = grad;
-      ctx.beginPath();
-      ctx.arc(fx, fy, fr, 0, Math.PI * 2);
-      ctx.fill();
+    // the flash, and the pool of light it throws on the floor
+    if (!boom.calm && boom.t < 0.16) {
+      var fl = 1 - boom.t / 0.16;
+      blitSprite(hg, art.core, bx, by, px(boom.S * 0.85), 0.9 * fl);
+      blitSprite(hg, heatSprite(art, 0.5), bx, by, px(boom.S * 1.7), 0.32 * fl);
+      mark(bx, by, px(boom.S * 1.7));
+      hg.save();
+      hg.translate(bx, view.groundY);
+      hg.scale(1, 0.24);
+      blitSprite(hg, heatSprite(art, 0.55), 0, 0, px(boom.S * 2.1), 0.42 * fl);
+      hg.restore();
+      mark(bx, view.groundY, px(boom.S * 2.1));
     }
 
     boom.parts.forEach(function (p) {
       if (p.t < 0) return;
-      if (!!p.back !== wantBack) return;
       var age = p.t / p.life;
       if (age > 1) return;
       var fade = 1 - age;
@@ -2049,55 +2145,52 @@
       if (p.kind === 'ring' || p.kind === 'wave') {
         var ease = 1 - Math.pow(1 - age, 3);
         var rad = p.r0 + (p.r1 - p.r0) * ease;
-        ctx.globalAlpha = Math.pow(fade, 1.2) * (p.kind === 'wave' ? 0.4 : 1);
-        ctx.strokeStyle = p.kind === 'wave'
-          ? smokeColour(dark, 1)
-          : hotColour(0.45 + age * 0.45, dark, 1);
-        ctx.lineWidth = px(p.w * fade);
-        ctx.beginPath();
-        /* The ground wave is a circle seen almost edge-on, so it is squashed
-         * flat rather than drawn as a sphere floating on the floor. */
         var squash = p.kind === 'wave' ? 0.26 : 0.82;
-        ctx.ellipse(view.sx(boom.ox), view.sy(boom.oy),
-          px(rad), px(rad) * squash, 0, 0, Math.PI * 2);
-        ctx.stroke();
+        if (p.kind === 'wave') return; // with the dust, on the scene
+        var g = hg;
+        g.globalAlpha = Math.pow(fade, 1.35) * (p.kind === 'wave' ? 0.45 : 0.55);
+        g.strokeStyle = p.kind === 'wave'
+          ? smokeColour(art.dark, 1)
+          : 'rgba(' + heatRgb(0.3 + age * 0.4).join(',') + ',1)';
+        g.lineWidth = px(p.w * fade);
+        g.beginPath();
+        g.ellipse(bx, by, px(rad), px(rad) * squash, 0, 0, Math.PI * 2);
+        g.stroke();
+        mark(bx, by, px(rad + p.w));
+        g.globalAlpha = 1;
+        return;
+      }
+
+      if (p.kind === 'spike') {
+        var reach = p.len * (1 - Math.pow(1 - age, 2));
+        var ca = Math.cos(p.ang);
+        var sa = Math.sin(p.ang);
+        hg.globalAlpha = Math.pow(fade, 1.1) * 0.9;
+        hg.fillStyle = 'rgba(' + heatRgb(Math.max(0, age * 0.3 + art.bias)).join(',') + ',1)';
+        hg.beginPath();
+        hg.moveTo(bx + ca * px(reach), by - sa * px(reach));
+        hg.lineTo(bx - sa * px(p.wide), by - ca * px(p.wide));
+        hg.lineTo(bx + sa * px(p.wide), by + ca * px(p.wide));
+        hg.closePath();
+        hg.fill();
+        hg.globalAlpha = 1;
+        mark(bx, by, px(reach + p.wide));
         return;
       }
 
       var sx = view.sx(p.x);
       var sy = view.sy(p.y);
 
-      if (p.kind === 'spike') {
-        var reach = p.len * (1 - Math.pow(1 - age, 2));
-        var bx = view.sx(boom.ox);
-        var by = view.sy(boom.oy);
-        var ca = Math.cos(p.ang);
-        var sa2 = Math.sin(p.ang);
-        ctx.globalAlpha = Math.pow(fade, 0.9);
-        ctx.fillStyle = hotColour(age * 0.35, dark, 1);
-        ctx.beginPath();
-        ctx.moveTo(bx + ca * px(reach), by - sa2 * px(reach));
-        ctx.lineTo(bx - sa2 * px(p.wide), by - ca * px(p.wide));
-        ctx.lineTo(bx + sa2 * px(p.wide), by + ca * px(p.wide));
-        ctx.closePath();
-        ctx.fill();
-        return;
-      }
-
       if (p.kind === 'fire') {
-        var fr2 = px(p.r * (1 + (p.grow - 1) * age));
-        ctx.globalAlpha = Math.pow(fade, 0.7);
-        ctx.drawImage(fireSprite(age, dark), sx - fr2, sy - fr2, fr2 * 2, fr2 * 2);
+        var fr = px(p.r * (1 + (p.grow - 1) * age));
+        blitSprite(hg, heatSprite(art, age * 0.85), sx, sy, fr, Math.pow(fade, 0.7));
+        mark(sx, sy, fr);
       } else if (p.kind === 'smoke' || p.kind === 'dust') {
-        var sr = px(p.r * (1 + (p.grow - 1) * age));
-        ctx.globalAlpha = (p.kind === 'dust' ? 0.42 : 0.3) * Math.pow(fade, 1.3);
-        ctx.drawImage(smokeSprite(dark), sx - sr, sy - sr, sr * 2, sr * 2);
+        return; // drawn straight onto the scene, see drawBoomDust
       } else if (p.kind === 'spark') {
-        ctx.globalAlpha = Math.pow(fade, 0.8);
-        ctx.strokeStyle = hotColour(age * 0.8, dark, 1);
-        ctx.lineWidth = Math.max(1.2, px(0.012 * boom.S) * fade);
-        /* Streaked along the last step, but clamped: a fast spark across a
-         * slow frame otherwise draws a stripe the width of the canvas. */
+        hg.globalAlpha = Math.pow(fade, 0.8);
+        hg.strokeStyle = 'rgba(' + heatRgb(0.22 + age * 0.5 + art.bias).join(',') + ',1)';
+        hg.lineWidth = Math.max(1, px(0.008 * boom.S) * fade);
         var lx = view.sx(p.px == null ? p.x : p.px);
         var ly = view.sy(p.py == null ? p.y : p.py);
         var maxLen = px(0.22 * boom.S);
@@ -2108,38 +2201,152 @@
           lx = sx - (dx / len) * maxLen;
           ly = sy - (dy / len) * maxLen;
         }
-        ctx.beginPath();
-        ctx.moveTo(lx, ly);
-        ctx.lineTo(sx, sy);
-        ctx.stroke();
+        hg.beginPath();
+        hg.moveTo(lx, ly);
+        hg.lineTo(sx, sy);
+        hg.stroke();
+        hg.globalAlpha = 1;
+        mark((sx + lx) / 2, (sy + ly) / 2, Math.hypot(sx - lx, sy - ly) / 2 + 2);
       } else if (p.kind === 'ember') {
         var twinkle = 0.55 + 0.45 * Math.sin(p.flick + p.t * 17);
-        ctx.globalAlpha = Math.pow(fade, 1.1) * twinkle;
-        ctx.fillStyle = hotColour(0.25 + age * 0.5, dark, 1);
-        ctx.beginPath();
-        ctx.arc(sx, sy, Math.max(1, px(0.012 * boom.S)), 0, Math.PI * 2);
-        ctx.fill();
-      } else if (p.kind === 'shard') {
-        ctx.globalAlpha = age > 0.75 ? (1 - age) / 0.25 : 1;
-        ctx.fillStyle = dark ? '#5b656f' : '#7d8894';
-        ctx.strokeStyle = dark ? '#2a3138' : '#454e57';
-        ctx.lineWidth = 1;
-        var size = px(p.size);
-        ctx.beginPath();
-        p.poly.forEach(function (pt, i) {
-          var cx = Math.cos(p.rot) * pt[0] - Math.sin(p.rot) * pt[1];
-          var cy = Math.sin(p.rot) * pt[0] + Math.cos(p.rot) * pt[1];
-          var qx = sx + cx * size;
-          var qy = sy + cy * size;
-          if (i === 0) ctx.moveTo(qx, qy);
-          else ctx.lineTo(qx, qy);
-        });
-        ctx.closePath();
-        ctx.fill();
-        ctx.stroke();
+        var er = Math.max(1.5, px(0.02 * boom.S));
+        blitSprite(hg, heatSprite(art, 0.25 + age * 0.45), sx, sy, er * 3.4,
+          Math.pow(fade, 1.1) * twinkle * 0.7);
+        hg.globalAlpha = Math.pow(fade, 1.1) * twinkle;
+        hg.fillStyle = 'rgba(' + heatRgb(Math.max(0, 0.2 + age * 0.4 + art.bias)).join(',') + ',1)';
+        hg.beginPath();
+        hg.arc(sx, sy, er, 0, Math.PI * 2);
+        hg.fill();
+        hg.globalAlpha = 1;
+        mark(sx, sy, er * 3.4);
       }
     });
 
+    hg.globalCompositeOperation = 'source-over';
+
+    var box = boom.rect;
+    if (!isFinite(box.x0)) {
+      boom.rect = null;
+      return;
+    }
+    // the camera kick moves the whole scene, so the box has to allow for it
+    box.x0 = Math.max(0, box.x0 - 14);
+    box.y0 = Math.max(0, box.y0 - 14);
+    box.x1 = Math.min(view.w, box.x1 + 14);
+    box.y1 = Math.min(view.h, box.y1 + 14);
+    boom.blit = {
+      x0: Math.min(box.x0, clear.x0),
+      y0: Math.min(box.y0, clear.y0),
+      x1: Math.max(box.x1, clear.x1),
+      y1: Math.max(box.y1, clear.y1)
+    };
+  }
+
+  /* Dust is drawn straight onto the scene rather than through a buffer of its
+   * own. Buffering it would let the cloud fade as one mass, which is tidier,
+   * but measured on a four-times-throttled CPU it was the single most
+   * expensive thing in the effect — on its own the difference between about
+   * forty frames in the blast and about a hundred. The torn sprite masks
+   * carry most of what the buffer was buying. */
+  function drawBoomDust(ctx, view) {
+    var boom = sim.boom;
+    if (!boom || !boomArt) return;
+    var art = boomArt;
+    var px = function (metres) { return Math.max(0.4, metres * view.scale); };
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(-400, -400, view.w + 800, view.groundY + 400);
+    ctx.clip();
+
+    boom.parts.forEach(function (p) {
+      if (p.t < 0) return;
+      var age = p.t / p.life;
+      if (age > 1) return;
+      var fade = 1 - age;
+
+      if (p.kind === 'wave') {
+        var ease = 1 - Math.pow(1 - age, 3);
+        var rad = p.r0 + (p.r1 - p.r0) * ease;
+        ctx.globalAlpha = Math.pow(fade, 1.35) * 0.45;
+        ctx.strokeStyle = smokeColour(art.dark, 1);
+        ctx.lineWidth = px(p.w * fade);
+        ctx.beginPath();
+        ctx.ellipse(view.sx(boom.ox), view.sy(boom.oy),
+          px(rad), px(rad) * 0.26, 0, 0, Math.PI * 2);
+        ctx.stroke();
+        return;
+      }
+      if (p.kind !== 'smoke' && p.kind !== 'dust') return;
+
+      var sr = px(p.r * (1 + (p.grow - 1) * age));
+      ctx.globalAlpha = (p.kind === 'dust' ? 0.62 : 0.46) * Math.pow(fade, 1.25);
+      ctx.save();
+      ctx.translate(view.sx(p.x), view.sy(p.y));
+      ctx.rotate(p.spin || 0);
+      ctx.drawImage(art.dust[p.mask || 0], -sr, -sr, sr * 2, sr * 2);
+      ctx.restore();
+    });
+
+    ctx.globalAlpha = 1;
+    ctx.restore();
+  }
+
+  function blitSprite(g, sprite, x, y, r, alpha) {
+    if (!(alpha > 0.002) || !(r > 0)) return;
+    g.globalAlpha = Math.min(1, alpha);
+    g.drawImage(sprite, x - r, y - r, r * 2, r * 2);
+    g.globalAlpha = 1;
+  }
+
+  function blitBoomHot(ctx, view, alpha) {
+    if (!sim.boom || !boomArt || !sim.boom.blit) return;
+    var layer = boomArt.hot;
+    var b = sim.boom.blit;
+    var w = b.x1 - b.x0;
+    var h = b.y1 - b.y0;
+    if (!(w > 0 && h > 0)) return;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.drawImage(layer.c, b.x0 * layer.s, b.y0 * layer.s, w * layer.s, h * layer.s,
+      b.x0, b.y0, w, h);
+    ctx.restore();
+  }
+
+  /* Debris is drawn on the scene rather than into either buffer: it is solid
+   * material, not light and not vapour. It is coloured as the floor, not as
+   * the object, because the physics never said the object broke — what the
+   * impact throws up is the ground. */
+  function drawBoomChunks(ctx, view, back) {
+    var boom = sim.boom;
+    if (!boom) return;
+    var dark = palette().dark;
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(-400, -400, view.w + 800, view.groundY + 400);
+    ctx.clip();
+    boom.parts.forEach(function (p) {
+      if (p.kind !== 'shard' || p.t < 0 || !!p.back !== back) return;
+      var age = p.t / p.life;
+      if (age > 1) return;
+      ctx.globalAlpha = age > 0.75 ? (1 - age) / 0.25 : 1;
+      ctx.fillStyle = dark ? '#3d444e' : '#78828f';
+      ctx.strokeStyle = dark ? '#20262d' : '#4d5661';
+      ctx.lineWidth = 1;
+      var sx = view.sx(p.x);
+      var sy = view.sy(p.y);
+      var size = Math.max(0.4, p.size * view.scale);
+      ctx.beginPath();
+      p.poly.forEach(function (pt, i) {
+        var cx = Math.cos(p.rot) * pt[0] - Math.sin(p.rot) * pt[1];
+        var cy = Math.sin(p.rot) * pt[0] + Math.cos(p.rot) * pt[1];
+        if (i === 0) ctx.moveTo(sx + cx * size, sy + cy * size);
+        else ctx.lineTo(sx + cx * size, sy + cy * size);
+      });
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+    });
     ctx.globalAlpha = 1;
     ctx.restore();
   }
@@ -2204,8 +2411,13 @@
 
     /* Every solid part, rotated about the pivot. Anything thinner than a
      * couple of pixels is drawn at that minimum so it doesn't vanish. */
-    // dust and the ground wave roll out behind the wreck
-    drawBoom(ctx, view, 'back');
+    /* Dust behind the wreck at full strength, again in front of it faintly,
+     * so the object sits inside the cloud rather than on top of or under it. */
+    if (sim.boom) {
+      renderBoomBuffers(view);
+      drawBoomDust(ctx, view);
+      drawBoomChunks(ctx, view, true);
+    }
 
     var skin = currentSkin();
     if (skin) {
@@ -2423,7 +2635,10 @@
       ctx.globalAlpha = 1;
     }
 
-    drawBoom(ctx, view, 'front');
+    if (sim.boom) {
+      drawBoomChunks(ctx, view, false);
+      blitBoomHot(ctx, view, 1);
+    }
   }
 
   var STATUS_TEXT = {
