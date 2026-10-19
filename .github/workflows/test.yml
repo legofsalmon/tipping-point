@@ -15,7 +15,7 @@ jobs:
         with:
           node-version: '22'
 
-      - name: Physics tests
+      - name: Physics tests, and the design system as vendored
         run: npm test
 
       - name: Single-file bundle builds

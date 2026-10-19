@@ -1,0 +1,133 @@
+/* @letissier/design-system 0.5.1 · base.css · sha256-8b0a12c79ea6a68c · vendored by scripts/sync.mjs; change the design-system repo, not this copy */
+/* The page defaults, on top of dist/tokens.css: the ground, the ink, body
+   text, the focus ring, and one class per text style. Optional — an app with
+   its own reset can take tokens.css alone and borrow from here.
+
+   Theme, density and motion are attributes, on <html> or on any element below it:
+     <html data-theme="dark | light | auto" data-density="regular | compact | touch | auto">
+   Motion needs none: it follows prefers-reduced-motion unless data-motion says otherwise.
+   An element that sets one is an island: it re-reads its ink and body text
+   below, and paints its own ground if it wants one. */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+/* the ground goes on body, so the canvas behind an overscroll takes it too */
+body {
+  margin: 0;
+  background: var(--ds-surface-ground);
+  color: var(--ds-ink-primary);
+  font: var(--ds-text-body);
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* a custom property is computed where it is declared and a colour inherits
+   as a colour, so an island has to ask again */
+[data-theme] {
+  color: var(--ds-ink-primary);
+}
+[data-density] {
+  font: var(--ds-text-body);
+}
+
+/* one ring, on everything operable, outside the edge it belongs to */
+:focus-visible {
+  outline: var(--ds-size-focus-ring) solid var(--ds-focus);
+  outline-offset: var(--ds-space-half);
+}
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* A view change is a fade through (docs/motion.md): the old view leaves
+   quickly, the new one arrives. Only runs when an app starts a view
+   transition; with reduced motion the durations shorten and nothing moves. */
+::view-transition-old(root) {
+  animation-duration: var(--ds-duration-fast);
+  animation-timing-function: var(--ds-ease-exit);
+}
+::view-transition-new(root) {
+  animation-duration: var(--ds-duration-base);
+  animation-timing-function: var(--ds-ease-enter);
+}
+
+::selection {
+  background: var(--ds-accent-soft);
+}
+
+/* Text styles. The capitals come from the style, never from typing them. */
+.ds-text-label {
+  font: var(--ds-text-label);
+  letter-spacing: var(--ds-text-label-tracking);
+  text-transform: var(--ds-text-label-case);
+}
+.ds-text-caption {
+  font: var(--ds-text-caption);
+}
+.ds-text-body {
+  font: var(--ds-text-body);
+}
+.ds-text-control {
+  font: var(--ds-text-control);
+}
+.ds-text-prose {
+  font: var(--ds-text-prose);
+  max-width: 65ch;
+}
+.ds-text-title {
+  font: var(--ds-text-title);
+}
+.ds-text-heading {
+  font: var(--ds-text-heading);
+  text-wrap: balance;
+}
+.ds-text-display {
+  font: var(--ds-text-display);
+  letter-spacing: var(--ds-text-display-tracking);
+  text-wrap: balance;
+}
+.ds-text-numeric {
+  font: var(--ds-text-numeric);
+  font-variant-numeric: tabular-nums slashed-zero;
+}
+.ds-text-readout {
+  font: var(--ds-text-readout);
+  font-variant-numeric: tabular-nums slashed-zero;
+}
+.ds-text-code {
+  font: var(--ds-text-code);
+}
+
+/* the three levels of ink, and off */
+.ds-ink-secondary {
+  color: var(--ds-ink-secondary);
+}
+.ds-ink-tertiary {
+  color: var(--ds-ink-tertiary);
+}
+.ds-ink-disabled {
+  color: var(--ds-ink-disabled);
+}
+
+/* read by a screen reader, not drawn */
+.ds-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}

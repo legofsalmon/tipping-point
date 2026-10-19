@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="auto" data-density="touch">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
@@ -9,8 +9,8 @@
       content="Work out the force needed to push a pole-on-a-baseplate over: enter the weights and sizes, get the tipping force, the lever arm, the tilt angle and whether it slides first."
     />
     <meta name="color-scheme" content="light dark" />
-    <meta name="theme-color" content="#f4f6f8" media="(prefers-color-scheme: light)" />
-    <meta name="theme-color" content="#0e1116" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#ececef" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#141415" media="(prefers-color-scheme: dark)" />
 
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
@@ -20,6 +20,10 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="Tipping Point" />
 
+    <!-- The shared design system, vendored by its scripts/sync.mjs (npm run ds:sync). -->
+    <link rel="stylesheet" href="src/ds/tokens.css" />
+    <link rel="stylesheet" href="src/ds/base.css" />
+    <link rel="stylesheet" href="src/ds/components.css" />
     <link rel="stylesheet" href="src/styles.css" />
   </head>
   <body data-mode="pole">
@@ -98,11 +102,11 @@
           <div class="sim-controls">
             <div class="sim-where led-only">
               <label for="sim-push-where">Pushing</label>
-              <select id="sim-push-where">
+              <select id="sim-push-where" class="ds-field">
                 <option value="wind">spread over the wall, the way wind does</option>
                 <option value="top">as one load at the very top</option>
               </select>
-              <label class="check">
+              <label class="ds-check check">
                 <input type="checkbox" id="sim-best-angle" />
                 <span id="sim-best-angle-label">At the best angle</span>
               </label>
@@ -115,6 +119,7 @@
                 <output id="sim-force-out" for="sim-force-input"></output>
               </label>
               <input
+                class="ds-slider"
                 type="range"
                 id="sim-force-input"
                 min="0"
@@ -125,10 +130,10 @@
               />
             </div>
             <div class="sim-buttons">
-              <button type="button" id="sim-apply" aria-pressed="false" class="btn-primary">Apply</button>
-              <button type="button" id="sim-reset">Stand it up</button>
+              <button type="button" id="sim-apply" class="ds-btn ds-btn--primary">Apply</button>
+              <button type="button" id="sim-reset" class="ds-btn">Stand it up</button>
             </div>
-            <label class="check">
+            <label class="ds-check check">
               <input type="checkbox" id="sim-base-held" checked />
               <span>Base held, so it can't slide away</span>
             </label>
@@ -144,7 +149,7 @@
           <div class="answer-figure pole-only">
             <span class="value" id="out-force">—</span>
             <label class="visually-hidden" for="force-unit">Force unit</label>
-            <select id="force-unit" class="unit unit-pick" data-units="force"></select>
+            <select id="force-unit" class="ds-field unit unit-pick" data-units="force"></select>
           </div>
 
           <div class="pole-only">
@@ -189,24 +194,24 @@
             <div class="field">
               <label for="plateMass">Weight</label>
               <div class="input-row">
-                <input id="plateMass" type="number" inputmode="decimal" step="any" min="0" />
-                <select id="plateMass-unit" class="unit" data-units="mass" aria-label="Baseplate weight unit"></select>
+                <input class="ds-field ds-field--numeric" id="plateMass" type="number" inputmode="decimal" step="any" min="0" />
+                <select id="plateMass-unit" class="ds-field unit" data-units="mass" aria-label="Baseplate weight unit"></select>
               </div>
             </div>
 
             <div class="field">
               <label for="plateLength">Length</label>
               <div class="input-row">
-                <input id="plateLength" type="number" inputmode="decimal" step="any" min="0" />
-                <select id="plateLength-unit" class="unit" data-units="length" aria-label="Baseplate length unit"></select>
+                <input class="ds-field ds-field--numeric" id="plateLength" type="number" inputmode="decimal" step="any" min="0" />
+                <select id="plateLength-unit" class="ds-field unit" data-units="length" aria-label="Baseplate length unit"></select>
               </div>
             </div>
 
             <div class="field">
               <label for="plateWidth">Width</label>
               <div class="input-row">
-                <input id="plateWidth" type="number" inputmode="decimal" step="any" min="0" />
-                <select id="plateWidth-unit" class="unit" data-units="length" aria-label="Baseplate width unit"></select>
+                <input class="ds-field ds-field--numeric" id="plateWidth" type="number" inputmode="decimal" step="any" min="0" />
+                <select id="plateWidth-unit" class="ds-field unit" data-units="length" aria-label="Baseplate width unit"></select>
               </div>
               <p class="hint">A square plate? Put the same number in both.</p>
             </div>
@@ -214,8 +219,8 @@
             <div class="field">
               <label for="plateThickness">Thickness</label>
               <div class="input-row">
-                <input id="plateThickness" type="number" inputmode="decimal" step="any" min="0" />
-                <select id="plateThickness-unit" class="unit" data-units="length" aria-label="Baseplate thickness unit"></select>
+                <input class="ds-field ds-field--numeric" id="plateThickness" type="number" inputmode="decimal" step="any" min="0" />
+                <select id="plateThickness-unit" class="ds-field unit" data-units="length" aria-label="Baseplate thickness unit"></select>
               </div>
             </div>
           </fieldset>
@@ -226,16 +231,16 @@
             <div class="field">
               <label for="poleMass">Weight</label>
               <div class="input-row">
-                <input id="poleMass" type="number" inputmode="decimal" step="any" min="0" />
-                <select id="poleMass-unit" class="unit" data-units="mass" aria-label="Pole weight unit"></select>
+                <input class="ds-field ds-field--numeric" id="poleMass" type="number" inputmode="decimal" step="any" min="0" />
+                <select id="poleMass-unit" class="ds-field unit" data-units="mass" aria-label="Pole weight unit"></select>
               </div>
             </div>
 
             <div class="field">
               <label for="poleLength">Length</label>
               <div class="input-row">
-                <input id="poleLength" type="number" inputmode="decimal" step="any" min="0" />
-                <select id="poleLength-unit" class="unit" data-units="length" aria-label="Pole length unit"></select>
+                <input class="ds-field ds-field--numeric" id="poleLength" type="number" inputmode="decimal" step="any" min="0" />
+                <select id="poleLength-unit" class="ds-field unit" data-units="length" aria-label="Pole length unit"></select>
               </div>
               <p class="hint">Sticking straight up from the centre of the plate.</p>
             </div>
@@ -262,7 +267,7 @@
               </div>
             </div>
 
-            <label class="check">
+            <label class="ds-check check">
               <input type="checkbox" id="pushAtTop" checked />
               <span>Push at the very top of the pole</span>
             </label>
@@ -270,18 +275,19 @@
             <div class="field">
               <label for="pushHeight">Push height above the ground</label>
               <div class="input-row">
-                <input id="pushHeight" type="number" inputmode="decimal" step="any" min="0" />
-                <select id="pushHeight-unit" class="unit" data-units="length" aria-label="Push height unit"></select>
+                <input class="ds-field ds-field--numeric" id="pushHeight" type="number" inputmode="decimal" step="any" min="0" />
+                <select id="pushHeight-unit" class="ds-field unit" data-units="length" aria-label="Push height unit"></select>
               </div>
             </div>
 
-            <details class="advanced">
+            <details class="ds-disclosure advanced">
               <summary>More options</summary>
-              <div>
+              <div class="ds-disclosure__body">
                 <div class="field">
                   <label for="pushAngleDeg">Push angle</label>
                   <div class="input-row">
                     <input
+                      class="ds-field ds-field--numeric"
                       id="pushAngleDeg"
                       type="number"
                       inputmode="decimal"
@@ -289,7 +295,7 @@
                       min="-89"
                       max="89"
                     />
-                    <select id="pushAngleDeg-unit" class="unit" disabled aria-hidden="true">
+                    <select id="pushAngleDeg-unit" class="ds-field unit" disabled aria-hidden="true">
                       <option>°</option>
                     </select>
                   </div>
@@ -302,13 +308,13 @@
                 <div class="field">
                   <label for="topMass">Extra weight carried at the top</label>
                   <div class="input-row">
-                    <input id="topMass" type="number" inputmode="decimal" step="any" min="0" />
-                    <select id="topMass-unit" class="unit" data-units="mass" aria-label="Top weight unit"></select>
+                    <input class="ds-field ds-field--numeric" id="topMass" type="number" inputmode="decimal" step="any" min="0" />
+                    <select id="topMass-unit" class="ds-field unit" data-units="mass" aria-label="Top weight unit"></select>
                   </div>
                   <p class="hint">A sign, a lamp, a camera — anything bolted to the top.</p>
                 </div>
 
-                <label class="check">
+                <label class="ds-check check">
                   <input type="checkbox" id="checkSliding" checked />
                   <span>Check whether it slides before it tips</span>
                 </label>
@@ -316,8 +322,8 @@
                 <div class="field">
                   <label for="friction">Friction against the ground</label>
                   <div class="input-row">
-                    <input id="friction" type="number" inputmode="decimal" step="0.05" min="0" />
-                    <select id="friction-preset" class="unit" aria-label="Friction preset">
+                    <input class="ds-field ds-field--numeric" id="friction" type="number" inputmode="decimal" step="0.05" min="0" />
+                    <select id="friction-preset" class="ds-field unit" aria-label="Friction preset">
                       <option value="">Set…</option>
                       <option value="0.05">PTFE 0.05</option>
                       <option value="0.15">Steel on steel 0.15</option>
@@ -332,8 +338,8 @@
                 <div class="field">
                   <label for="gravity">Gravity</label>
                   <div class="input-row">
-                    <input id="gravity" type="number" inputmode="decimal" step="any" min="0.01" />
-                    <select id="gravity-preset" class="unit" aria-label="Gravity preset">
+                    <input class="ds-field ds-field--numeric" id="gravity" type="number" inputmode="decimal" step="any" min="0.01" />
+                    <select id="gravity-preset" class="ds-field unit" aria-label="Gravity preset">
                       <option value="">Set…</option>
                       <option value="9.80665">Earth</option>
                       <option value="1.62">Moon</option>
@@ -354,27 +360,27 @@
             <div class="field">
               <label for="wallWidth">Width</label>
               <div class="input-row">
-                <input id="wallWidth" type="number" inputmode="decimal" step="any" min="0" />
-                <select id="wallWidth-unit" class="unit" data-units="length" aria-label="Wall width unit"></select>
+                <input class="ds-field ds-field--numeric" id="wallWidth" type="number" inputmode="decimal" step="any" min="0" />
+                <select id="wallWidth-unit" class="ds-field unit" data-units="length" aria-label="Wall width unit"></select>
               </div>
             </div>
 
             <div class="field">
               <label for="wallHeight">Height</label>
               <div class="input-row">
-                <input id="wallHeight" type="number" inputmode="decimal" step="any" min="0" />
-                <select id="wallHeight-unit" class="unit" data-units="length" aria-label="Wall height unit"></select>
+                <input class="ds-field ds-field--numeric" id="wallHeight" type="number" inputmode="decimal" step="any" min="0" />
+                <select id="wallHeight-unit" class="ds-field unit" data-units="length" aria-label="Wall height unit"></select>
               </div>
             </div>
 
             <div class="field">
               <label for="wallArealMass">Panel weight</label>
               <div class="input-row">
-                <input id="wallArealMass" type="number" inputmode="decimal" step="any" min="0" />
-                <select id="wallArealMass-unit" class="unit" data-units="areal" aria-label="Panel weight unit"></select>
+                <input class="ds-field ds-field--numeric" id="wallArealMass" type="number" inputmode="decimal" step="any" min="0" />
+                <select id="wallArealMass-unit" class="ds-field unit" data-units="areal" aria-label="Panel weight unit"></select>
               </div>
               <div class="input-row">
-                <select id="panel-preset" aria-label="Panel type">
+                <select id="panel-preset" class="ds-field" aria-label="Panel type">
                   <option value="">Typical figures…</option>
                 </select>
               </div>
@@ -384,8 +390,8 @@
             <div class="field">
               <label for="wallBottom">Bottom of the wall, above the ground</label>
               <div class="input-row">
-                <input id="wallBottom" type="number" inputmode="decimal" step="any" min="0" />
-                <select id="wallBottom-unit" class="unit" data-units="length" aria-label="Wall bottom unit"></select>
+                <input class="ds-field ds-field--numeric" id="wallBottom" type="number" inputmode="decimal" step="any" min="0" />
+                <select id="wallBottom-unit" class="ds-field unit" data-units="length" aria-label="Wall bottom unit"></select>
               </div>
               <p class="hint" id="wall-bottom-hint"></p>
             </div>
@@ -393,8 +399,8 @@
             <div class="field">
               <label for="wallDepth">Cabinet depth</label>
               <div class="input-row">
-                <input id="wallDepth" type="number" inputmode="decimal" step="any" min="0" />
-                <select id="wallDepth-unit" class="unit" data-units="length" aria-label="Cabinet depth unit"></select>
+                <input class="ds-field ds-field--numeric" id="wallDepth" type="number" inputmode="decimal" step="any" min="0" />
+                <select id="wallDepth-unit" class="ds-field unit" data-units="length" aria-label="Cabinet depth unit"></select>
               </div>
               <p class="hint">
                 Sets how far in front of the truss the wall's weight hangs — which is what
@@ -402,7 +408,7 @@
               </p>
             </div>
 
-            <label class="check">
+            <label class="ds-check check">
               <input type="checkbox" id="wallOnGround" />
               <span>Bottom of the wall rests on what's under it</span>
             </label>
@@ -415,8 +421,8 @@
             <div class="field">
               <label for="trussHeight">Height</label>
               <div class="input-row">
-                <input id="trussHeight" type="number" inputmode="decimal" step="any" min="0" />
-                <select id="trussHeight-unit" class="unit" data-units="length" aria-label="Truss height unit"></select>
+                <input class="ds-field ds-field--numeric" id="trussHeight" type="number" inputmode="decimal" step="any" min="0" />
+                <select id="trussHeight-unit" class="ds-field unit" data-units="length" aria-label="Truss height unit"></select>
               </div>
               <p class="hint">
                 Can be shorter than the wall — the wall is rigid and fixed to the truss, so its
@@ -427,11 +433,11 @@
             <div class="field">
               <label for="trussLinearMass">Weight per length</label>
               <div class="input-row">
-                <input id="trussLinearMass" type="number" inputmode="decimal" step="any" min="0" />
-                <select id="trussLinearMass-unit" class="unit" data-units="linear" aria-label="Truss weight unit"></select>
+                <input class="ds-field ds-field--numeric" id="trussLinearMass" type="number" inputmode="decimal" step="any" min="0" />
+                <select id="trussLinearMass-unit" class="ds-field unit" data-units="linear" aria-label="Truss weight unit"></select>
               </div>
               <div class="input-row">
-                <select id="truss-preset" aria-label="Truss size">
+                <select id="truss-preset" class="ds-field" aria-label="Truss size">
                   <option value="">Common sizes…</option>
                 </select>
               </div>
@@ -440,16 +446,16 @@
             <div class="field">
               <label for="trussDepth">Depth, front to back</label>
               <div class="input-row">
-                <input id="trussDepth" type="number" inputmode="decimal" step="any" min="0" />
-                <select id="trussDepth-unit" class="unit" data-units="length" aria-label="Truss depth unit"></select>
+                <input class="ds-field ds-field--numeric" id="trussDepth" type="number" inputmode="decimal" step="any" min="0" />
+                <select id="trussDepth-unit" class="ds-field unit" data-units="length" aria-label="Truss depth unit"></select>
               </div>
             </div>
 
             <div class="field">
               <label for="trussWidth">Width, across the wall</label>
               <div class="input-row">
-                <input id="trussWidth" type="number" inputmode="decimal" step="any" min="0" />
-                <select id="trussWidth-unit" class="unit" data-units="length" aria-label="Truss width unit"></select>
+                <input class="ds-field ds-field--numeric" id="trussWidth" type="number" inputmode="decimal" step="any" min="0" />
+                <select id="trussWidth-unit" class="ds-field unit" data-units="length" aria-label="Truss width unit"></select>
               </div>
               <p class="hint" id="truss-width-hint"></p>
             </div>
@@ -457,8 +463,8 @@
             <div class="field">
               <label for="trussSolidity">How solid the truss is</label>
               <div class="input-row">
-                <input id="trussSolidity" type="number" inputmode="decimal" step="0.05" min="0.01" max="1" />
-                <select id="trussSolidity-unit" class="unit" disabled aria-hidden="true">
+                <input class="ds-field ds-field--numeric" id="trussSolidity" type="number" inputmode="decimal" step="0.05" min="0.01" max="1" />
+                <select id="trussSolidity-unit" class="ds-field unit" disabled aria-hidden="true">
                   <option>of face</option>
                 </select>
               </div>
@@ -469,6 +475,7 @@
               <label for="uprightsOverride">How many uprights</label>
               <div class="input-row">
                 <input
+                  class="ds-field ds-field--numeric"
                   id="uprightsOverride"
                   type="number"
                   inputmode="numeric"
@@ -476,7 +483,7 @@
                   min="2"
                   placeholder="work it out for me"
                 />
-                <select id="uprightsOverride-unit" class="unit" disabled aria-hidden="true">
+                <select id="uprightsOverride-unit" class="ds-field unit" disabled aria-hidden="true">
                   <option>off</option>
                 </select>
               </div>
@@ -487,7 +494,7 @@
           <fieldset class="led-only">
             <legend>Baseplates and ballast</legend>
 
-            <label class="check">
+            <label class="ds-check check">
               <input type="checkbox" id="trussCentred" />
               <span>Truss centred on the baseplate</span>
             </label>
@@ -495,8 +502,8 @@
             <div class="field">
               <label for="plateFront">Reach in front of the truss</label>
               <div class="input-row">
-                <input id="plateFront" type="number" inputmode="decimal" step="any" min="0" />
-                <select id="plateFront-unit" class="unit" data-units="length" aria-label="Front reach unit"></select>
+                <input class="ds-field ds-field--numeric" id="plateFront" type="number" inputmode="decimal" step="any" min="0" />
+                <select id="plateFront-unit" class="ds-field unit" data-units="length" aria-label="Front reach unit"></select>
               </div>
               <p class="hint">
                 The single most useful number here — it is the lever arm holding the wall up.
@@ -506,8 +513,8 @@
             <div class="field">
               <label for="plateBack">Reach behind the truss</label>
               <div class="input-row">
-                <input id="plateBack" type="number" inputmode="decimal" step="any" min="0" />
-                <select id="plateBack-unit" class="unit" data-units="length" aria-label="Rear reach unit"></select>
+                <input class="ds-field ds-field--numeric" id="plateBack" type="number" inputmode="decimal" step="any" min="0" />
+                <select id="plateBack-unit" class="ds-field unit" data-units="length" aria-label="Rear reach unit"></select>
               </div>
               <p class="hint" id="plate-depth-hint"></p>
             </div>
@@ -515,16 +522,16 @@
             <div class="field">
               <label for="ledPlateWidth">Baseplate width</label>
               <div class="input-row">
-                <input id="ledPlateWidth" type="number" inputmode="decimal" step="any" min="0" />
-                <select id="ledPlateWidth-unit" class="unit" data-units="length" aria-label="Baseplate width unit"></select>
+                <input class="ds-field ds-field--numeric" id="ledPlateWidth" type="number" inputmode="decimal" step="any" min="0" />
+                <select id="ledPlateWidth-unit" class="ds-field unit" data-units="length" aria-label="Baseplate width unit"></select>
               </div>
             </div>
 
             <div class="field">
               <label for="ledPlateThickness">Baseplate thickness</label>
               <div class="input-row">
-                <input id="ledPlateThickness" type="number" inputmode="decimal" step="any" min="0" />
-                <select id="ledPlateThickness-unit" class="unit" data-units="length" aria-label="Baseplate thickness unit"></select>
+                <input class="ds-field ds-field--numeric" id="ledPlateThickness" type="number" inputmode="decimal" step="any" min="0" />
+                <select id="ledPlateThickness-unit" class="ds-field unit" data-units="length" aria-label="Baseplate thickness unit"></select>
               </div>
               <p class="hint">
                 Where the plate runs under the wall, this is how high the bottom of the wall
@@ -535,20 +542,20 @@
             <div class="field">
               <label for="ledPlateMass">Weight of one baseplate</label>
               <div class="input-row">
-                <input id="ledPlateMass" type="number" inputmode="decimal" step="any" min="0" />
-                <select id="ledPlateMass-unit" class="unit" data-units="mass" aria-label="Baseplate weight unit"></select>
+                <input class="ds-field ds-field--numeric" id="ledPlateMass" type="number" inputmode="decimal" step="any" min="0" />
+                <select id="ledPlateMass-unit" class="ds-field unit" data-units="mass" aria-label="Baseplate weight unit"></select>
               </div>
             </div>
 
             <div class="field">
               <label for="ballastMass">Ballast on each baseplate</label>
               <div class="input-row">
-                <input id="ballastMass" type="number" inputmode="decimal" step="any" min="0" />
-                <select id="ballastMass-unit" class="unit" data-units="mass" aria-label="Ballast unit"></select>
+                <input class="ds-field ds-field--numeric" id="ballastMass" type="number" inputmode="decimal" step="any" min="0" />
+                <select id="ballastMass-unit" class="ds-field unit" data-units="mass" aria-label="Ballast unit"></select>
               </div>
             </div>
 
-            <label class="check">
+            <label class="ds-check check">
               <input type="checkbox" id="ballastAtBack" />
               <span>Stack the ballast at the back of the plate</span>
             </label>
@@ -560,20 +567,20 @@
             <div class="field">
               <label for="windSpeed">Design wind speed</label>
               <div class="input-row">
-                <input id="windSpeed" type="number" inputmode="decimal" step="any" min="0" />
-                <select id="windSpeed-unit" class="unit" data-units="speed" aria-label="Wind speed unit"></select>
+                <input class="ds-field ds-field--numeric" id="windSpeed" type="number" inputmode="decimal" step="any" min="0" />
+                <select id="windSpeed-unit" class="ds-field unit" data-units="speed" aria-label="Wind speed unit"></select>
               </div>
               <p class="hint" id="wind-hint"></p>
             </div>
 
-            <details class="advanced">
+            <details class="ds-disclosure advanced">
               <summary>More options</summary>
-              <div>
+              <div class="ds-disclosure__body">
                 <div class="field">
                   <label for="forceCoefficient">Wind force coefficient</label>
                   <div class="input-row">
-                    <input id="forceCoefficient" type="number" inputmode="decimal" step="0.1" min="0.1" />
-                    <select id="cf-preset" class="unit" aria-label="Coefficient preset">
+                    <input class="ds-field ds-field--numeric" id="forceCoefficient" type="number" inputmode="decimal" step="0.1" min="0.1" />
+                    <select id="cf-preset" class="ds-field unit" aria-label="Coefficient preset">
                       <option value="">Set…</option>
                     </select>
                   </div>
@@ -586,8 +593,8 @@
                 <div class="field">
                   <label for="trussForceCoefficient">Wind force coefficient, lattice truss</label>
                   <div class="input-row">
-                    <input id="trussForceCoefficient" type="number" inputmode="decimal" step="0.1" min="0.1" />
-                    <select id="trussForceCoefficient-unit" class="unit" disabled aria-hidden="true">
+                    <input class="ds-field ds-field--numeric" id="trussForceCoefficient" type="number" inputmode="decimal" step="0.1" min="0.1" />
+                    <select id="trussForceCoefficient-unit" class="ds-field unit" disabled aria-hidden="true">
                       <option>×</option>
                     </select>
                   </div>
@@ -600,8 +607,8 @@
                 <div class="field">
                   <label for="safetyFactor">Safety factor against overturning</label>
                   <div class="input-row">
-                    <input id="safetyFactor" type="number" inputmode="decimal" step="0.1" min="1" />
-                    <select id="safetyFactor-unit" class="unit" disabled aria-hidden="true">
+                    <input class="ds-field ds-field--numeric" id="safetyFactor" type="number" inputmode="decimal" step="0.1" min="1" />
+                    <select id="safetyFactor-unit" class="ds-field unit" disabled aria-hidden="true">
                       <option>×</option>
                     </select>
                   </div>
@@ -610,8 +617,8 @@
                 <div class="field">
                   <label for="maxSpacing">Widest spacing, centre to centre</label>
                   <div class="input-row">
-                    <input id="maxSpacing" type="number" inputmode="decimal" step="any" min="0.1" />
-                    <select id="maxSpacing-unit" class="unit" data-units="length" aria-label="Spacing unit"></select>
+                    <input class="ds-field ds-field--numeric" id="maxSpacing" type="number" inputmode="decimal" step="any" min="0.1" />
+                    <select id="maxSpacing-unit" class="ds-field unit" data-units="length" aria-label="Spacing unit"></select>
                   </div>
                   <p class="hint">
                     Measured centre to centre, not the clear gap between faces. Usually set by
@@ -622,16 +629,16 @@
                 <div class="field">
                   <label for="maxLoadPerUpright">Most wall weight one upright may carry</label>
                   <div class="input-row">
-                    <input id="maxLoadPerUpright" type="number" inputmode="decimal" step="any" min="1" />
-                    <select id="maxLoadPerUpright-unit" class="unit" data-units="mass" aria-label="Load limit unit"></select>
+                    <input class="ds-field ds-field--numeric" id="maxLoadPerUpright" type="number" inputmode="decimal" step="any" min="1" />
+                    <select id="maxLoadPerUpright-unit" class="ds-field unit" data-units="mass" aria-label="Load limit unit"></select>
                   </div>
                 </div>
 
                 <div class="field">
                   <label for="ledGravity">Gravity</label>
                   <div class="input-row">
-                    <input id="ledGravity" type="number" inputmode="decimal" step="any" min="0.01" />
-                    <select id="ledGravity-unit" class="unit" disabled aria-hidden="true">
+                    <input class="ds-field ds-field--numeric" id="ledGravity" type="number" inputmode="decimal" step="any" min="0.01" />
+                    <select id="ledGravity-unit" class="ds-field unit" disabled aria-hidden="true">
                       <option>m/s²</option>
                     </select>
                   </div>
@@ -641,9 +648,9 @@
           </fieldset>
 
           <div class="actions">
-            <button type="button" id="btn-share">Copy link</button>
-            <button type="button" id="btn-copy">Copy summary</button>
-            <button type="button" id="btn-reset">Reset</button>
+            <button type="button" id="btn-share" class="ds-btn">Copy link</button>
+            <button type="button" id="btn-copy" class="ds-btn">Copy summary</button>
+            <button type="button" id="btn-reset" class="ds-btn">Reset</button>
           </div>
         </section>
 
@@ -686,7 +693,7 @@
 
             <h3 class="subhead">The three cases it is checked against</h3>
             <div class="table-scroll">
-              <table class="compare">
+              <table class="ds-table compare">
                 <thead>
                   <tr>
                     <th scope="col">Load case</th>
@@ -702,7 +709,7 @@
 
             <h3 class="subhead">Where the holding-down comes from</h3>
             <div class="table-scroll">
-              <table class="compare">
+              <table class="ds-table compare">
                 <thead>
                   <tr>
                     <th scope="col">Part</th>
@@ -722,7 +729,7 @@
           <div class="pole-only">
           <h3 class="subhead">Which way is easiest</h3>
           <div class="table-scroll">
-            <table class="compare">
+            <table class="ds-table compare">
               <thead>
                 <tr>
                   <th scope="col">Push direction</th>
@@ -739,7 +746,7 @@
 
           </div>
 
-          <details class="notes-block led-only">
+          <details class="ds-disclosure notes-block led-only">
             <summary>What this assumes, and what it is not</summary>
             <ul>
               <li>
@@ -824,7 +831,7 @@
             </ul>
           </details>
 
-          <details class="notes-block pole-only">
+          <details class="ds-disclosure notes-block pole-only">
             <summary>What this assumes</summary>
             <ul>
               <li>
@@ -875,7 +882,7 @@
       <span class="mini-badge" id="mini-badge"></span>
     </div>
 
-    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <section class="ds-toaster" aria-label="Notifications"><div id="toast" role="status"></div></section>
 
     <script src="src/physics.js"></script>
     <script src="src/ledwall.js"></script>

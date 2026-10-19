@@ -318,7 +318,7 @@
     var host = $('pole-presets');
     if (!host) return;
     host.innerHTML = POLE_PRESETS.map(function (o, i) {
-      return '<button type="button" class="preset-chip" data-preset="' + i +
+      return '<button type="button" class="ds-btn preset-chip" data-preset="' + i +
         '" aria-pressed="false">' +
         esc(o.label) + '<span>' + esc(o.note) + '</span></button>';
     }).join('');
@@ -1060,8 +1060,8 @@
       ground: pick('--ground', '#888'),
       border: pick('--border-strong', '#ccc'),
       surface: pick('--surface', '#fff'),
-      body: pick('--border-strong', '#c6ccd6'),
-      accent: pick('--accent', '#2563eb'),
+      body: pick('--body', '#c4c4cc'),
+      measure: pick('--measure', '#666'),
       force: pick('--force', '#d94f0a'),
       screen: pick('--screen', '#2f3947'),
       screenLine: pick('--screen-line', '#151a22'),
@@ -1157,7 +1157,13 @@
   }
 
   function updateSimForceLabel() {
-    var pct = Number($('sim-force-input').value);
+    var input = $('sim-force-input');
+    var pct = Number(input.value);
+    // ds-slider fills its track up to --fill; Firefox fills by itself
+    input.style.setProperty(
+      '--fill',
+      ((pct - Number(input.min)) / (Number(input.max) - Number(input.min))) * 100 + '%'
+    );
     var force = sliderForce();
     var unit = $('force-unit').value || 'N';
     var out = $('sim-force-out');
@@ -1215,9 +1221,9 @@
 
   function setApplying(on) {
     sim.applying = on;
-    var btn = $('sim-apply');
-    btn.setAttribute('aria-pressed', on ? 'true' : 'false');
-    btn.textContent = on ? 'Stop' : 'Apply';
+    /* The label is what the next press does, so it is a plain button rather
+     * than a toggle: a toggle keeps one name, and "Stop, pressed" says less. */
+    $('sim-apply').textContent = on ? 'Stop' : 'Apply';
     if (on) startSimLoop();
   }
 
@@ -2471,7 +2477,7 @@
     /* anything carried as a lump rather than a box */
     b.markers.forEach(function (m) {
       var p = bodyPoint(view, m.x, m.y);
-      ctx.fillStyle = c.accent;
+      ctx.fillStyle = c.muted;
       ctx.globalAlpha = 0.8;
       ctx.beginPath();
       ctx.arc(p.x, p.y, 8, 0, Math.PI * 2);
@@ -2490,7 +2496,7 @@
      * drawn over a wreck they read as debris rather than instrumentation. */
     if (!st.fallen) {
       var cg = bodyPoint(view, b.cgPoint.x, b.cgPoint.y);
-      ctx.strokeStyle = c.accent;
+      ctx.strokeStyle = c.measure;
       ctx.globalAlpha = 0.35;
       ctx.lineWidth = 1.2;
       ctx.beginPath();
@@ -2501,7 +2507,7 @@
 
       var cogNow = S.cog(b, st);
       var inside = cogNow.insideBy >= 0;
-      var plumbColour = inside ? c.accent : c.force;
+      var plumbColour = inside ? c.measure : c.force;
       var landX = view.sx(cogNow.x + st.slide);
 
       ctx.save();
@@ -2973,7 +2979,7 @@
       $('out-badge').innerHTML = '';
       $('out-notes').innerHTML = result.errors
         .map(function (e) {
-          return '<li class="is-error">' + esc(e) + '</li>';
+          return '<li class="ds-notice ds-notice--bad">' + esc(e) + '</li>';
         })
         .join('');
       return;
@@ -3008,7 +3014,7 @@
 
     $('out-notes').innerHTML = result.warnings
       .map(function (w) {
-        return '<li>' + esc(w) + '</li>';
+        return '<li class="ds-notice ds-notice--warn">' + esc(w) + '</li>';
       })
       .join('');
   }
@@ -3084,7 +3090,7 @@
         var isCurrent = d.id === result.chosen.id;
         var isEasiest = isFinite(d.tipForce) && d.tipForce <= minForce * (1 + 1e-9);
         return (
-          '<tr class="' + (isCurrent ? 'is-current' : '') + '">' +
+          '<tr' + (isCurrent ? ' aria-current="true"' : '') + '>' +
           '<td>' + esc(d.label) +
           (isEasiest ? ' <span class="tag">easiest</span>' : '') + '</td>' +
           '<td>' + esc(fmtLengthIn(d.leverArm, armUnit)) + '</td>' +
@@ -3314,7 +3320,7 @@
       $('led-working').textContent = 'Fill in the wall and the uprights to see the working.';
       $('out-notes').innerHTML = result.errors
         .map(function (e) {
-          return '<li class="is-error">' + esc(e) + '</li>';
+          return '<li class="ds-notice ds-notice--bad">' + esc(e) + '</li>';
         })
         .join('');
       return;
@@ -3398,7 +3404,7 @@
 
     $('out-notes').innerHTML = result.warnings
       .map(function (w) {
-        return '<li>' + esc(w) + '</li>';
+        return '<li class="ds-notice ds-notice--warn">' + esc(w) + '</li>';
       })
       .join('');
 
@@ -3474,7 +3480,7 @@
         var isWorst = c.id === result.governingCase.id;
         var ratio = c.moments.ratio;
         return (
-          '<tr class="' + (isWorst ? 'is-current' : '') + '">' +
+          '<tr' + (isWorst ? ' aria-current="true"' : '') + '>' +
           '<td>' + esc(c.label) +
           (isWorst ? ' <span class="tag">governs</span>' : '') + '</td>' +
           '<td>' + esc(fmtMoment(c.moments.restoring)) + '</td>' +
@@ -4419,15 +4425,14 @@
    * Wiring
    * ------------------------------------------------------------------ */
 
-  var toastTimer = null;
+  /* The behaviour timers come from the design system's tokens, so they stay
+   * in step with every other app's. Read once; they never change with the
+   * theme or the motion setting. */
+  function timing(name, fallback) {
+    var v = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ds-' + name));
+    return isFinite(v) && v > 0 ? v : fallback;
+  }
 
-  /**
-   * A message, optionally with something to do about it.
-   *
-   * An action gets a longer dwell — an undo you cannot reach in time is not an
-   * undo — and is the reason Reset needs no confirmation dialogue: it is
-   * cheaper to build and much better to use than being asked twice.
-   */
   /**
    * The answer, one line tall, for while the real panel is off-screen.
    *
@@ -4477,26 +4482,85 @@
     }, { rootMargin: '-8px 0px 0px 0px' }).observe(panel);
   }
 
-  function toast(message, action) {
-    var el = $('toast');
-    el.textContent = message;
+  /**
+   * A message at the edge, in the design system's toaster.
+   *
+   * News leaves on its own after timing.notice. A failure (kind 'bad') stays
+   * until it is dismissed: one that vanished before anyone looked did not
+   * happen. An action gets a longer dwell — an undo you cannot reach in time
+   * is not an undo — and the timer pauses while the pointer or focus is in the
+   * toast, so it is the reason Reset needs no confirmation dialogue. A new
+   * message replaces the news before it; failures stay.
+   */
+  function toast(message, action, kind) {
+    var region = $('toast');
+    Array.prototype.forEach.call(region.querySelectorAll('.ds-toast:not(.ds-notice--bad)'), dismissToast);
+
+    var el = document.createElement('div');
+    el.className = 'ds-notice ds-toast' + (kind ? ' ds-notice--' + kind : '');
+    var body = document.createElement('div');
+    body.className = 'ds-notice__body';
+    body.textContent = message;
+    var actions = document.createElement('div');
+    actions.className = 'ds-notice__actions';
     if (action) {
       var btn = document.createElement('button');
       btn.type = 'button';
-      btn.className = 'toast-action';
+      btn.className = 'ds-btn ds-btn--small';
       btn.textContent = action.label;
       btn.addEventListener('click', function () {
-        clearTimeout(toastTimer);
-        el.classList.remove('is-shown');
+        dismissToast(el);
         action.run();
       });
-      el.appendChild(btn);
+      actions.appendChild(btn);
     }
-    el.classList.add('is-shown');
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(function () {
-      el.classList.remove('is-shown');
-    }, action ? 9000 : 2200);
+    var close = document.createElement('button');
+    close.type = 'button';
+    close.className = 'ds-btn ds-btn--small ds-btn--quiet';
+    close.textContent = 'Dismiss';
+    close.addEventListener('click', function () {
+      dismissToast(el);
+    });
+    actions.appendChild(close);
+    el.appendChild(body);
+    el.appendChild(actions);
+    region.appendChild(el);
+
+    if (kind === 'bad') return;
+
+    var left = action ? 9000 : timing('timing-notice', 4000);
+    var started = 0;
+    var timer = null;
+    var run = function () {
+      started = Date.now();
+      timer = setTimeout(function () {
+        dismissToast(el);
+      }, left);
+    };
+    var hold = function () {
+      if (!timer) return;
+      clearTimeout(timer);
+      timer = null;
+      left -= Date.now() - started;
+    };
+    var release = function () {
+      if (!timer && !el.contains(document.activeElement) && !el.matches(':hover')) run();
+    };
+    el.addEventListener('pointerenter', hold);
+    el.addEventListener('pointerleave', release);
+    el.addEventListener('focusin', hold);
+    el.addEventListener('focusout', function () {
+      setTimeout(release, 0);
+    });
+    run();
+  }
+
+  function dismissToast(el) {
+    if (el.dataset.leaving === 'true') return;
+    el.dataset.leaving = 'true';
+    setTimeout(function () {
+      if (el.parentNode) el.parentNode.removeChild(el);
+    }, timing('duration-base', 160));
   }
 
   function copyText(str, okMessage) {
@@ -4524,7 +4588,7 @@
       document.execCommand('copy');
       done();
     } catch (err) {
-      toast('Could not copy automatically');
+      toast('Could not copy: this browser would not allow it here.', null, 'bad');
     }
     document.body.removeChild(ta);
   }
@@ -4639,7 +4703,7 @@
           applyModeChrome();
           update();
           resetSim();
-          toast('Put back');
+          toast('Undone');
         }
       });
     });
