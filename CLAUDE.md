@@ -28,7 +28,13 @@ against), `navigation.md`, `states.md`, `components.md` and `motion.md`.
 - **What stays this app's own:** storage and wire names, layout and flow,
   content, and meanings only this app has.
 
-This app has not moved onto the tokens yet; the adoption plan
-(`docs/adoption.md` in the design system) has its turn. The reasoning applies
-now: new UI follows the grammar and the behaviour rules, so the move is
-smaller when it comes.
+tipping-point takes the whole system: `src/ds/` holds tokens.css, base.css and
+components.css as `npm run ds:sync` vendors them (`npm run ds:check` says
+whether they are behind; `test/design-system.test.mjs` fails CI on a hand
+edit), the fields, buttons, checks, slider, notices and toaster are the
+system's components, and the page is `data-theme="auto"
+data-density="touch"`. Its own names in `src/styles.css` point at roles. Its
+own meaning, `--force` for the applied force, is content: the arrows and
+labels on the drawings and the overturning bar, never chrome. Fonts are
+vendored in `fonts/` and inlined by the single-file build, which inlines
+`src/ds/` too; a new file there goes in `sw.js` and the build.

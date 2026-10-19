@@ -1,17 +1,25 @@
 /* tipping-point — styles
  *
- * Mobile-first. One accent for interactive things, a warm second accent
- * reserved for the applied force so the diagram and the numbers agree.
+ * On the shared design system (src/ds/, vendored by its scripts/sync.mjs):
+ * tokens.css, base.css and components.css load before this file. The names
+ * below are this app's own and stay, because the canvas reads them; each one
+ * now points at a role, so both themes and the contrast come from the system.
+ *
+ * Mobile-first, at the touch density everywhere: this is used outdoors, on a
+ * phone, possibly in gloves. The one colour that is this app's own is
+ * --force, the applied force, and it is content: the arrows and labels on
+ * the drawings and the overturning bar, never chrome.
  */
 
 /* Vendored rather than linked: this app has to work with no connection and
  * straight off a USB stick, so a webfont from someone else's server would be
- * the one part of it that needs the internet. One variable file, latin only,
- * 35 KB, under the SIL Open Font Licence — see fonts/OFL.txt. The single-file
- * build inlines it as a data URI so that copy carries its own typography too.
+ * the one part of it that needs the internet. Latin only, under the SIL Open
+ * Font Licence (fonts/OFL.txt, fonts/OFL-IBM-Plex.txt). The single-file build
+ * inlines each one as a data URI so that copy carries its own typography too.
  *
- * Without a face of its own the app was set in whatever form font the reader's
- * operating system uses, which is the look it is least well served by. */
+ * IBM Plex Sans for everything you read and operate, IBM Plex Mono for the
+ * working and the numbers you type, Archivo for the headings and the answer,
+ * as the design system sets them out. */
 @font-face {
   font-family: "Archivo";
   font-style: normal;
@@ -20,108 +28,96 @@
   src: url("../fonts/archivo-var-latin.woff2") format("woff2");
 }
 
-:root {
-  --bg: #f4f6f8;
-  --surface: #ffffff;
-  --surface-2: #f8fafc;
-  --border: #dfe3e9;
-  --border-strong: #c6ccd6;
-  --text: #12161c;
-  --muted: #5b6472;
-  --accent: #2563eb;
-  --accent-soft: #e6edfd;
-  --on-accent: #ffffff;
-  --force: #d94f0a;
-  --force-soft: #fdecdf;
-  /* Dark enough to clear 4.5:1 against its own 14% tint, which is what the
-   * pass badge sits on. #15803d measured 4.16:1 there. */
-  --ok: #12722f;
-  --warn: #a35a00;
-  --warn-soft: #fdf3e2;
-  --bad: #b3261e;
-  --ground: #8b93a1;
-  /* the LED wall reads as a dark screen in either theme */
-  --screen: #2f3947;
-  --screen-line: #151a22;
-  --ballast: #7b8494;
+@font-face {
+  font-family: "IBM Plex Sans";
+  font-style: normal;
+  font-weight: 100 700;
+  font-display: swap;
+  src: url("../fonts/ibm-plex-sans-var-latin.woff2") format("woff2");
+}
 
+@font-face {
+  font-family: "IBM Plex Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../fonts/ibm-plex-mono-400-latin.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "IBM Plex Mono";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("../fonts/ibm-plex-mono-600-latin.woff2") format("woff2");
+}
+
+:root {
+  --bg: var(--ds-surface-ground);
+  --surface: var(--ds-surface-panel);
+  /* wells: the fields, the stage, the diagrams, the working */
+  --surface-2: var(--ds-surface-inset);
+  --border: var(--ds-line-subtle);
+  --border-strong: var(--ds-line-control);
+  --text: var(--ds-ink-primary);
+  --muted: var(--ds-ink-secondary);
+  --faint: var(--ds-ink-tertiary);
+  --accent: var(--ds-accent);
+  --accent-soft: var(--ds-accent-soft);
+  --on-accent: var(--ds-accent-on);
+  --ok: var(--ds-ok-ink);
+  --warn: var(--ds-warn-ink);
+  --bad: var(--ds-bad-ink);
+
+  /* The drawings' own inks. Dimensions, the plumb line and the centre of
+   * mass's swing are measurement, and were in the accent, which means "you".
+   * They are ink now: a series colour would be the obvious hue, but series
+   * colours are for marks, not text, and the dimension labels are text (the
+   * first series measured 2.9:1 on the dark well). The force stays its own
+   * colour, so the two still read apart. */
+  --measure: var(--ds-ink-secondary);
+  --ground: var(--ds-ink-tertiary);
+  /* the plate, the pole and the truss, a step off the well they sit in */
+  --body: var(--ds-neutral-32);
+  /* the LED wall is a dark screen in either theme, which is what the canvas
+   * role is for */
+  --screen: var(--ds-surface-canvas);
+  --screen-line: var(--ds-neutral-0);
+
+  --radius: var(--ds-radius-panel);
+  --radius-sm: var(--ds-radius-control);
+
+  --font: var(--ds-font-sans);
+  --display: var(--ds-font-display);
+  --mono: var(--ds-font-mono);
+
+  /* Local, dark theme (the system's default). Measured at 7.2:1 on the
+   * inset well the diagrams sit in. */
+  --force: #ff9147;
+  --ballast: var(--ds-neutral-39);
   /* Read by the canvas so the object artwork can pick a light or dark set of
    * its own colours. Not used by any CSS rule. */
-  --sim-dark: 0;
-
-  --radius: 14px;
-  --radius-sm: 9px;
-  --shadow: 0 1px 2px rgba(16, 24, 40, 0.05), 0 8px 24px -12px rgba(16, 24, 40, 0.14);
-
-  --font: "Archivo", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-    "Helvetica Neue", Arial, "Noto Sans", sans-serif;
-  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
-    "Liberation Mono", monospace;
-
-  color-scheme: light dark;
-}
-
-/* The dark palette is applied in two places: when the system asks for it
- * (unless something has explicitly pinned light), and when a host stamps
- * data-theme="dark" on the root. Standalone, only the first ever fires. */
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --bg: #0e1116;
-    --surface: #161a21;
-    --surface-2: #1b2029;
-    --border: #262c37;
-    --border-strong: #39414f;
-    --text: #e7eaee;
-    --muted: #99a2b1;
-    --accent: #6c9cff;
-    --accent-soft: #1b2740;
-    --on-accent: #0e1116;
-    --force: #ff9147;
-    --force-soft: #33210f;
-    --ok: #4ec97a;
-    --warn: #e0a758;
-    --warn-soft: #302512;
-    --bad: #ff7b72;
-    --ground: #6a7383;
-    --screen: #212a38;
-    --screen-line: #0a0d12;
-    --ballast: #4d5766;
-    --sim-dark: 1;
-    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 10px 26px -14px rgba(0, 0, 0, 0.7);
-  }
-}
-
-:root[data-theme="dark"] {
-  --bg: #0e1116;
-  --surface: #161a21;
-  --surface-2: #1b2029;
-  --border: #262c37;
-  --border-strong: #39414f;
-  --text: #e7eaee;
-  --muted: #99a2b1;
-  --accent: #6c9cff;
-  --accent-soft: #1b2740;
-  --on-accent: #0e1116;
-  --force: #ff9147;
-  --force-soft: #33210f;
-  --ok: #4ec97a;
-  --warn: #e0a758;
-  --warn-soft: #302512;
-  --bad: #ff7b72;
-  --ground: #6a7383;
-  --screen: #212a38;
-  --screen-line: #0a0d12;
-  --ballast: #4d5766;
   --sim-dark: 1;
-  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 10px 26px -14px rgba(0, 0, 0, 0.7);
 }
 
-* {
-  box-sizing: border-box;
+/* The light theme, by the same selectors tokens.css uses: when a host stamps
+ * data-theme="light", and under data-theme="auto" when the system is light.
+ * #a83f08 clears 4.5:1 on the inset well (4.81:1), which the diagram labels
+ * set in it need; the old #d94f0a was 3.2:1 there. */
+[data-theme="light"] {
+  --force: #a83f08;
+  --ballast: var(--ds-neutral-59);
+  --body: var(--ds-neutral-79);
+  --sim-dark: 0;
 }
 
-html {
-  -webkit-text-size-adjust: 100%;
+@media (prefers-color-scheme: light) {
+  [data-theme="auto"] {
+    --force: #a83f08;
+    --ballast: var(--ds-neutral-59);
+    --body: var(--ds-neutral-79);
+    --sim-dark: 0;
+  }
 }
 
 body {
@@ -130,10 +126,7 @@ body {
     max(14px, env(safe-area-inset-right));
   background: var(--bg);
   color: var(--text);
-  font-family: var(--font);
-  font-size: 16px;
-  line-height: 1.5;
-  -webkit-font-smoothing: antialiased;
+  font: var(--ds-text-body);
   overscroll-behavior-y: none;
 }
 
@@ -178,7 +171,6 @@ body {
  * heights, which read as a mistake rather than a pair. */
 .masthead-controls .seg span {
   white-space: nowrap;
-  font-size: 0.85rem;
 }
 
 @media (max-width: 599px) {
@@ -193,15 +185,15 @@ body {
 
 .masthead h1 {
   margin: 0;
-  font-size: 1.35rem;
-  font-weight: 650;
+  font: var(--ds-text-heading);
+  font-family: var(--display);
   letter-spacing: -0.015em;
 }
 
 .masthead p {
   margin: 4px 0 0;
   color: var(--muted);
-  font-size: 0.9rem;
+  font: var(--ds-text-prose);
   max-width: 62ch;
 }
 
@@ -260,26 +252,21 @@ body[data-mode="led"] .pole-only {
   display: none !important;
 }
 
-.mode-toggle span {
-  font-weight: 580;
-}
-
+/* A panel is set on the ground by its surface, not by a border or a shadow
+ * (the system's ds-panel); its heading is a section head. */
 .panel {
   min-width: 0;
   background: var(--surface);
-  border: 1px solid var(--border);
   border-radius: var(--radius);
-  box-shadow: var(--shadow);
   padding: 16px;
 }
 
 .panel > h2 {
   margin: 0 0 12px;
-  font-size: 0.78rem;
-  font-weight: 650;
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
-  color: var(--muted);
+  color: var(--faint);
+  font: var(--ds-text-label);
+  letter-spacing: var(--ds-text-label-tracking);
+  text-transform: var(--ds-text-label-case);
 }
 
 /* ---------------------------------------------------------------- answer */
@@ -287,10 +274,6 @@ body[data-mode="led"] .pole-only {
 /* Deliberately not sticky: pinned to the top it floated over the simulation
  * canvas and swallowed presses meant for the object. The simulation panel
  * carries its own live force readout, so nothing is lost. */
-.panel--answer {
-  border-color: var(--border-strong);
-}
-
 .answer-figure {
   display: flex;
   align-items: baseline;
@@ -298,13 +281,16 @@ body[data-mode="led"] .pole-only {
   flex-wrap: wrap;
 }
 
+/* The answer is a value, not a status, so it is in ink. It used to be in the
+ * force colour; that colour now belongs to the arrows on the drawings. */
 .answer-figure .value {
+  font-family: var(--display);
   font-size: clamp(2.35rem, 11vw, 3.3rem);
   font-weight: 680;
   line-height: 1;
   letter-spacing: -0.03em;
   font-variant-numeric: tabular-nums;
-  color: var(--force);
+  color: var(--text);
 }
 
 /* The unit belongs to the number, not to the panel. It sits immediately after
@@ -323,14 +309,20 @@ body[data-mode="led"] .pole-only {
   color: var(--muted);
   background-color: transparent;
   border-color: transparent;
-  padding: 2px 22px 2px 6px;
-  background-position: right 8px center, right 3px center;
+  /* set close to the figure: the chevron keeps its place inside the edge */
+  padding: 2px 24px 2px 6px;
+  background-position: right 12px center, right 8px center;
 }
 
-.answer-figure .unit-pick:hover,
+@media (hover: hover) {
+  .answer-figure .unit-pick:hover {
+    background-color: var(--surface-2);
+    border-color: var(--border-strong);
+  }
+}
+
 .answer-figure .unit-pick:focus-visible {
   background-color: var(--surface-2);
-  border-color: var(--border-strong);
 }
 
 .answer-figure .answer-unit {
@@ -342,7 +334,7 @@ body[data-mode="led"] .pole-only {
 .answer-note {
   margin: 10px 0 0;
   color: var(--muted);
-  font-size: 0.88rem;
+  font: var(--ds-text-prose);
 }
 
 .stats--tight {
@@ -350,16 +342,16 @@ body[data-mode="led"] .pole-only {
   grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
 }
 
+/* The verdict. Green is spent here because standing up has to be told apart
+ * from going over at a glance, and the words say it too. */
 .badge--pass {
-  background: color-mix(in srgb, var(--ok) 14%, var(--surface));
+  background: var(--ds-ok-soft);
   color: var(--ok);
-  border-color: color-mix(in srgb, var(--ok) 34%, transparent);
 }
 
 .badge--fail {
-  background: color-mix(in srgb, var(--bad) 12%, var(--surface));
+  background: var(--ds-bad-soft);
   color: var(--bad);
-  border-color: color-mix(in srgb, var(--bad) 36%, transparent);
 }
 
 /* A bay in section is tall and narrow; the elevation is wide and short. Give
@@ -402,7 +394,7 @@ body[data-mode="led"] .pole-only {
 }
 
 .dg-truss-fill {
-  fill: var(--border-strong);
+  fill: var(--body);
   stroke: var(--text);
   stroke-width: 1.2;
 }
@@ -422,7 +414,7 @@ body[data-mode="led"] .pole-only {
 
 .answer-equiv {
   margin: 6px 0 0;
-  font-size: 0.88rem;
+  font: var(--ds-text-prose);
   color: var(--muted);
 }
 
@@ -432,50 +424,38 @@ body[data-mode="led"] .pole-only {
   font-variant-numeric: tabular-nums;
 }
 
+/* What the answer means, in a line: the system's chip, drawn in sentence
+ * case and allowed to wrap, because these are sentences ("Goes over at
+ * 25 m/s — only 1.2× against overturning") and a chip's tracked capitals are
+ * for a word or two. Same washes and inks as ds-chip. Tipping before it
+ * slides is a fact, not attention, so it is neutral (it was in the accent,
+ * which means "you"). */
 .badge {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   margin-top: 12px;
-  padding: 5px 11px;
-  border-radius: 999px;
-  font-size: 0.82rem;
-  font-weight: 560;
-  border: 1px solid transparent;
-}
-
-.badge--tip {
-  background: var(--accent-soft);
-  color: var(--accent);
-  border-color: color-mix(in srgb, var(--accent) 26%, transparent);
+  padding: 4px 8px;
+  min-height: var(--ds-size-control-sm);
+  border-radius: var(--radius-sm);
+  font: var(--ds-text-control);
+  font-weight: var(--ds-weight-semibold);
+  background: var(--surface-2);
+  color: var(--muted);
 }
 
 .badge--slide {
-  background: var(--warn-soft);
+  background: var(--ds-warn-soft);
   color: var(--warn);
-  border-color: color-mix(in srgb, var(--warn) 30%, transparent);
 }
 
+/* the warnings and errors are ds-notice--warn and ds-notice--bad */
 .notes {
   margin: 12px 0 0;
   padding: 0;
   list-style: none;
   display: grid;
-  gap: 7px;
-}
-
-.notes li {
-  font-size: 0.86rem;
-  padding: 9px 11px;
-  border-radius: var(--radius-sm);
-  background: var(--warn-soft);
-  color: var(--text);
-  border: 1px solid color-mix(in srgb, var(--warn) 24%, transparent);
-}
-
-.notes li.is-error {
-  background: color-mix(in srgb, var(--bad) 10%, var(--surface));
-  border-color: color-mix(in srgb, var(--bad) 32%, transparent);
+  gap: 8px;
 }
 
 /* ---------------------------------------------------------------- inputs */
@@ -490,26 +470,27 @@ fieldset:last-of-type {
   margin-bottom: 0;
 }
 
+/* A group of fields is titled in words; the fields in it carry the label
+ * style, tracked capitals over the control (the system's ds-label). */
 legend {
   padding: 0;
-  font-size: 0.78rem;
-  font-weight: 650;
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
-  color: var(--muted);
-  margin-bottom: 9px;
+  font: var(--ds-text-title);
+  color: var(--text);
+  margin-bottom: 8px;
 }
 
 .field {
-  margin-bottom: 11px;
+  margin-bottom: 12px;
 }
 
 .field > label,
 .field > .label {
   display: block;
-  font-size: 0.87rem;
-  font-weight: 520;
-  margin-bottom: 5px;
+  color: var(--muted);
+  font: var(--ds-text-label);
+  letter-spacing: var(--ds-text-label-tracking);
+  text-transform: var(--ds-text-label-case);
+  margin-bottom: 4px;
 }
 
 .input-row {
@@ -517,98 +498,52 @@ legend {
   gap: 7px;
 }
 
-input[type="number"],
-input[type="text"],
-select {
-  font-family: inherit;
-  font-size: 1rem; /* 16px keeps iOS from zooming on focus */
-  color: var(--text);
-  background: var(--surface-2);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-sm);
-  padding: 10px 11px;
-  min-height: 44px; /* comfortable tap target */
-  width: 100%;
-}
-
-input[type="number"] {
-  font-variant-numeric: tabular-nums;
-}
-
-select {
-  cursor: pointer;
-  appearance: none;
-  -webkit-appearance: none;
-  padding-right: 28px;
-  background-image: linear-gradient(45deg, transparent 50%, currentColor 50%),
-    linear-gradient(135deg, currentColor 50%, transparent 50%);
-  background-position: right 13px center, right 8px center;
-  background-size: 5px 5px, 5px 5px;
-  background-repeat: no-repeat;
+/* The fields are ds-field (ds-field--numeric for the numbers). 16px keeps
+ * iOS from zooming the page on focus, and the touch density's body size is
+ * 15px, so a field is held at 16px here. */
+.ds-field {
+  font-size: max(16px, var(--ds-text-body-size));
 }
 
 .input-row select.unit {
   width: auto;
   flex: 0 0 auto;
-  min-width: 74px;
+  min-width: 80px;
 }
 
-input:focus-visible,
-select:focus-visible,
-button:focus-visible,
+/* the system's focus ring (base.css) for the segment the hidden radio drives */
 .seg input:focus-visible + span {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-
-input:disabled,
-select:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+  outline: var(--ds-size-focus-ring) solid var(--ds-focus);
+  outline-offset: var(--ds-space-half);
 }
 
 .hint {
-  margin: 5px 0 0;
-  font-size: 0.79rem;
-  color: var(--muted);
+  margin: 4px 0 0;
+  font: var(--ds-text-caption);
+  color: var(--faint);
 }
 
 /* The whole row is the target, not the 20 px box. Padded to 44 px so it can be
  * hit outdoors, on a phone, in gloves — which is where this app is used. The
  * negative margin keeps the extra padding from moving anything. */
+/* ds-check, as a whole row: the touch density's 44px target is the row, not
+ * the box. */
 .check {
   display: flex;
-  align-items: flex-start;
-  gap: 9px;
-  font-size: 0.87rem;
-  margin-bottom: 9px;
-  cursor: pointer;
-  min-height: 44px;
-  align-items: center;
-  padding: 4px 0;
-  margin-left: -4px;
-  padding-left: 4px;
+  margin-bottom: 8px;
 }
 
-.check input {
-  width: 20px;
-  height: 20px;
-  min-height: 0;
-  margin: 0;
-  flex: 0 0 auto;
-  accent-color: var(--accent);
-  cursor: pointer;
-}
-
-/* segmented control */
+/* Segmented control. The system's ds-seg is drawn on buttons; these are
+ * native radios, which already give one Tab stop and the arrow keys, so the
+ * segments are drawn from the same roles: an inset track, the chosen one in
+ * accent.soft with a 1px accent ring and accent ink, hover on the others. */
 
 .seg {
   display: flex;
-  gap: 4px;
+  gap: var(--ds-space-half);
   background: var(--surface-2);
-  border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  padding: 4px;
+  padding: var(--ds-space-half);
 }
 
 .seg--stack {
@@ -629,14 +564,29 @@ select:disabled {
 }
 
 .seg span {
-  display: block;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
   text-align: center;
-  padding: 8px 9px;
-  border-radius: 6px;
-  font-size: 0.86rem;
-  font-weight: 520;
+  padding: 4px 12px;
+  border-radius: max(0px, calc(var(--ds-radius-control) - var(--ds-space-half)));
+  font: var(--ds-text-control);
   color: var(--muted);
-  min-height: 36px;
+  min-height: calc(var(--ds-size-control) - 2 * var(--ds-space-half));
+  transition:
+    background-color var(--ds-duration-fast) var(--ds-ease-standard),
+    color var(--ds-duration-fast) var(--ds-ease-standard);
+}
+
+@media (hover: hover) {
+  .seg input:not(:checked) + span:hover {
+    background: var(--ds-wash-hover);
+  }
+}
+
+.seg input:not(:checked) + span:active {
+  background: var(--ds-wash-pressed);
+  transition-duration: var(--ds-duration-instant);
 }
 
 .seg--stack span {
@@ -644,66 +594,39 @@ select:disabled {
 }
 
 .seg input:checked + span {
-  background: var(--surface);
-  color: var(--text);
-  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.12);
-  font-weight: 600;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .seg input:checked + span {
-    background: var(--accent-soft);
-    color: var(--text);
-  }
-}
-
-:root[data-theme="dark"] .seg input:checked + span {
   background: var(--accent-soft);
-  color: var(--text);
+  color: var(--ds-accent-ink);
+  box-shadow: inset 0 0 0 var(--ds-space-hairline) var(--accent);
+}
+
+.seg--stack span {
+  align-items: flex-start;
 }
 
 .seg span small {
   display: block;
-  font-weight: 420;
-  font-size: 0.74rem;
+  font: var(--ds-text-caption);
   color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
 
 
-/* advanced disclosure */
+/* advanced disclosure: ds-disclosure, set flush with the fields */
 
 details.advanced {
   margin-top: 4px;
   border-top: 1px solid var(--border);
-  padding-top: 12px;
+  padding-top: 8px;
 }
 
-details.advanced > summary {
-  cursor: pointer;
-  font-size: 0.85rem;
-  font-weight: 560;
-  color: var(--accent);
-  list-style: none;
-  padding: 4px 0;
+details.advanced > summary,
+details.notes-block > summary {
+  margin-left: calc(-1 * var(--ds-space-2));
 }
 
-details.advanced > summary::-webkit-details-marker {
-  display: none;
-}
-
-details.advanced > summary::before {
-  content: "▸";
-  display: inline-block;
-  margin-right: 7px;
-}
-
-details.advanced[open] > summary::before {
-  content: "▾";
-}
-
-details.advanced > div {
-  padding-top: 12px;
+details.advanced > .ds-disclosure__body {
+  display: block;
+  padding: 8px 0 0;
 }
 
 .actions {
@@ -715,34 +638,14 @@ details.advanced > div {
   border-top: 1px solid var(--border);
 }
 
-button {
-  font-family: inherit;
-  font-size: 0.88rem;
-  font-weight: 550;
-  color: var(--text);
-  background: var(--surface-2);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-sm);
-  padding: 10px 14px;
-  min-height: 44px;
-  cursor: pointer;
-}
-
-button:hover {
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
-button:active {
-  transform: translateY(1px);
-}
-
 /* ------------------------------------------------------------ simulation */
 
+/* The stage is a well, like the diagrams, and follows the theme. It is not
+ * the system's dark canvas: that is for tools that show light (a look, a
+ * frame, a pixel map), and what is drawn here is a diagram. */
 .sim-stage {
   position: relative;
   background: var(--surface-2);
-  border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   overflow: hidden;
 }
@@ -769,17 +672,17 @@ button:active {
   bottom: 7px;
   margin: 0;
   text-align: center;
-  font-size: 0.76rem;
+  font: var(--ds-text-caption);
   color: var(--muted);
   pointer-events: none;
-  transition: opacity 0.2s ease;
+  transition: opacity var(--ds-duration-fast) var(--ds-ease-exit);
 }
 
 /* sits over the ground hatching, so give it something to sit on */
 .sim-tip span {
   background: var(--surface-2);
   padding: 2px 9px;
-  border-radius: 999px;
+  border-radius: var(--ds-radius-pill);
 }
 
 .sim-tip.is-hidden {
@@ -787,9 +690,8 @@ button:active {
 }
 
 .sim-status {
-  margin: 11px 0 0;
-  font-size: 0.9rem;
-  font-weight: 520;
+  margin: 12px 0 0;
+  font: var(--ds-text-title);
   min-height: 1.5em;
 }
 
@@ -798,34 +700,32 @@ button:active {
   font-weight: 620;
 }
 
+/* Standing is quiet; sliding is attention; going over is stop. The words
+ * say each one as well. */
 .sim-status--over {
-  color: var(--force);
+  color: var(--bad);
 }
 
 .sim-status--slide {
   color: var(--warn);
 }
 
-.sim-status--hold {
-  color: var(--ok);
-}
-
 /* the centre-of-gravity readout under the status line */
 .sim-cog {
-  margin: 5px 0 0;
-  font-size: 0.83rem;
+  margin: 4px 0 0;
+  font: var(--ds-text-body);
   color: var(--muted);
   min-height: 1.4em;
 }
 
 .sim-cog .qty {
   font-variant-numeric: tabular-nums;
-  font-weight: 620;
-  color: var(--accent);
+  font-weight: var(--ds-weight-semibold);
+  color: var(--text);
 }
 
 .sim-cog.is-over .qty {
-  color: var(--force);
+  color: var(--bad);
 }
 
 /* moment balance bars */
@@ -840,20 +740,24 @@ button:active {
   display: grid;
   grid-template-columns: 5.6rem minmax(0, 1fr) 5.4rem;
   align-items: center;
-  gap: 9px;
-  font-size: 0.8rem;
+  gap: 8px;
+  font: var(--ds-text-caption);
 }
 
 .balance-label {
   color: var(--muted);
 }
 
+/* Two live levels, so they are drawn as the system's meter is: an inset
+ * track, the size.meter thickness, and no transition, because a live value
+ * never animates. The righting moment is a value, so it is the neutral
+ * chart mark (it was the accent); the overturning one is the force's, in the
+ * force colour, the same as the arrow on the canvas. */
 .balance-track {
   display: block;
-  height: 10px;
-  border-radius: 999px;
+  height: var(--ds-size-meter);
+  border-radius: var(--ds-radius-pill);
   background: var(--surface-2);
-  border: 1px solid var(--border);
   overflow: hidden;
 }
 
@@ -861,12 +765,11 @@ button:active {
   display: block;
   height: 100%;
   width: 0;
-  border-radius: 999px;
-  transition: width 0.06s linear;
+  border-radius: var(--ds-radius-pill);
 }
 
 .balance-fill--righting {
-  background: var(--accent);
+  background: var(--ds-chart-mark);
 }
 
 .balance-fill--over {
@@ -875,18 +778,13 @@ button:active {
 
 .balance-value {
   text-align: right;
+  font-family: var(--mono);
   font-variant-numeric: tabular-nums;
   color: var(--text);
 }
 
 .balance.is-done {
   opacity: 0.45;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .balance-fill {
-    transition: none;
-  }
 }
 
 /* controls */
@@ -901,8 +799,7 @@ button:active {
 
 .sim-force label {
   display: block;
-  font-size: 0.85rem;
-  margin-bottom: 7px;
+  margin-bottom: 4px;
 }
 
 .sim-force output {
@@ -925,7 +822,7 @@ button:active {
 }
 
 .sim-force .q b {
-  font-weight: 660;
+  font-weight: var(--ds-weight-semibold);
 }
 
 .sim-force .q span {
@@ -935,8 +832,7 @@ button:active {
 
 .sim-force .q-like {
   flex-basis: 100%;
-  font-weight: 400;
-  font-size: 0.82rem;
+  font: var(--ds-text-caption);
   color: var(--muted);
 }
 
@@ -949,19 +845,10 @@ button:active {
 
 .sim-where > label:first-child {
   display: block;
-  font-size: 0.85rem;
 }
 
 .sim-where .hint {
   margin: 8px 0 0;
-}
-
-input[type="range"] {
-  width: 100%;
-  margin: 0;
-  accent-color: var(--force);
-  /* 44 px of grabbable height; the track itself still draws thin. */
-  height: 44px;
 }
 
 .sim-buttons {
@@ -972,24 +859,6 @@ input[type="range"] {
 
 .sim-buttons button {
   flex: 1 1 auto;
-}
-
-.btn-primary {
-  background: var(--accent);
-  border-color: var(--accent);
-  /* the dark theme's accents are light, so the label flips with them */
-  color: var(--on-accent);
-  font-weight: 600;
-}
-
-.btn-primary:hover {
-  color: var(--on-accent);
-  filter: brightness(1.07);
-}
-
-.btn-primary[aria-pressed="true"] {
-  background: var(--force);
-  border-color: var(--force);
 }
 
 /* --------------------------------------------------------------- diagram */
@@ -1009,9 +878,8 @@ input[type="range"] {
 
 .diagram-box {
   background: var(--surface-2);
-  border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  padding: 6px;
+  padding: 8px;
 }
 
 .diagram-box svg {
@@ -1028,25 +896,25 @@ input[type="range"] {
 }
 
 .diagram-caption {
-  margin: 6px 2px 0;
-  font-size: 0.76rem;
-  color: var(--muted);
+  margin: 4px 2px 0;
+  font: var(--ds-text-caption);
+  color: var(--faint);
   text-align: center;
 }
 
 /* diagram ink */
 .dg-plate {
-  fill: var(--border-strong);
+  fill: var(--body);
   stroke: var(--text);
   stroke-width: 1.2;
 }
 .dg-pole {
-  fill: var(--border-strong);
+  fill: var(--body);
   stroke: var(--text);
   stroke-width: 1.2;
 }
 .dg-top-mass {
-  fill: var(--accent);
+  fill: var(--muted);
   opacity: 0.75;
 }
 .dg-ground {
@@ -1076,12 +944,12 @@ input[type="range"] {
   fill: var(--muted);
 }
 .dg-dim {
-  stroke: var(--accent);
+  stroke: var(--measure);
   stroke-width: 1.1;
   fill: none;
 }
 .dg-dim-fill {
-  fill: var(--accent);
+  fill: var(--measure);
 }
 .dg-guide {
   stroke: var(--muted);
@@ -1117,12 +985,12 @@ input[type="range"] {
   font-weight: 620;
 }
 .dg-label--dim {
-  fill: var(--accent);
+  fill: var(--measure);
   font-size: 10.5px;
   font-weight: 550;
 }
 .dg-plan-face {
-  fill: var(--accent);
+  fill: var(--muted);
   opacity: 0.09;
   stroke: var(--border-strong);
   stroke-width: 1.2;
@@ -1143,41 +1011,40 @@ input[type="range"] {
   margin: 0;
 }
 
+/* The system's stat tile, at the size a grid of nine needs: the label, the
+ * value, and what it is in words. */
 .stat {
   background: var(--surface-2);
-  border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  padding: 10px 12px;
+  padding: 8px 12px;
 }
 
 .stat dt {
-  font-size: 0.76rem;
   color: var(--muted);
-  margin: 0 0 3px;
+  font: var(--ds-text-label);
+  letter-spacing: var(--ds-text-label-tracking);
+  text-transform: var(--ds-text-label-case);
+  margin: 0 0 4px;
 }
 
 .stat dd {
   margin: 0;
-  font-size: 1.02rem;
-  font-weight: 580;
+  font: var(--ds-text-title);
   font-variant-numeric: tabular-nums;
-  letter-spacing: -0.01em;
 }
 
 .stat dd small {
-  font-size: 0.76rem;
-  font-weight: 420;
-  color: var(--muted);
-  letter-spacing: 0;
+  font: var(--ds-text-caption);
+  color: var(--faint);
 }
 
+/* a section head, as ds-section__head draws it */
 .subhead {
   margin: 20px 0 8px;
-  font-size: 0.78rem;
-  font-weight: 650;
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
-  color: var(--muted);
+  color: var(--faint);
+  font: var(--ds-text-label);
+  letter-spacing: var(--ds-text-label-tracking);
+  text-transform: var(--ds-text-label-case);
 }
 
 .table-scroll {
@@ -1185,26 +1052,11 @@ input[type="range"] {
   -webkit-overflow-scrolling: touch;
 }
 
-table.compare {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.88rem;
-}
-
+/* ds-table; the numbers sit right, as its ds-num does */
 table.compare th,
 table.compare td {
   text-align: right;
-  padding: 9px 8px;
-  border-bottom: 1px solid var(--border);
   font-variant-numeric: tabular-nums;
-}
-
-table.compare th {
-  font-size: 0.74rem;
-  font-weight: 560;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--muted);
 }
 
 table.compare th:first-child,
@@ -1219,28 +1071,29 @@ table.compare td:not(:first-child) {
   white-space: nowrap;
 }
 
-table.compare tr:last-child td {
-  border-bottom: 0;
-}
-
-table.compare tr.is-current {
+/* The direction the answer is for, drawn as the system draws a selected
+ * row: accent.soft and a 2px accent bar. It is the one you are looking at. */
+table.compare tr[aria-current="true"] td {
   background: var(--accent-soft);
 }
 
-table.compare tr.is-current td:first-child {
-  font-weight: 620;
-  box-shadow: inset 3px 0 0 var(--accent);
+table.compare tr[aria-current="true"] td:first-child {
+  font-weight: var(--ds-weight-semibold);
+  box-shadow: inset var(--ds-space-half) 0 0 var(--accent);
 }
 
+/* "easiest", "governs": a fact about the row, so neutral, in the chip's
+ * label style. It was in the force colour. */
 table.compare td .tag {
   display: inline-block;
   margin-left: 6px;
-  padding: 1px 6px;
-  border-radius: 999px;
-  font-size: 0.68rem;
-  font-weight: 600;
-  background: var(--force-soft);
-  color: var(--force);
+  padding: 0 6px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--muted);
+  font: var(--ds-text-label);
+  letter-spacing: var(--ds-text-label-tracking);
+  text-transform: var(--ds-text-label-case);
   vertical-align: 1px;
 }
 
@@ -1248,10 +1101,8 @@ table.compare td .tag {
   margin: 0;
   padding: 12px;
   background: var(--surface-2);
-  border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  font-family: var(--mono);
-  font-size: 0.8rem;
+  font: var(--ds-text-code);
   line-height: 1.75;
   overflow-x: auto;
   white-space: pre;
@@ -1266,18 +1117,10 @@ details.notes-block {
   margin-top: 14px;
 }
 
-details.notes-block > summary {
-  cursor: pointer;
-  font-size: 0.84rem;
-  font-weight: 560;
-  color: var(--accent);
-  padding: 6px 0;
-}
-
 details.notes-block ul {
-  margin: 6px 0 0;
+  margin: 4px 0 0;
   padding-left: 20px;
-  font-size: 0.85rem;
+  font: var(--ds-text-prose);
   color: var(--muted);
 }
 
@@ -1286,52 +1129,23 @@ details.notes-block li {
 }
 
 .colophon {
-  margin: 22px 4px 0;
-  font-size: 0.78rem;
-  color: var(--muted);
+  margin: 24px 4px 0;
+  font: var(--ds-text-caption);
+  color: var(--faint);
   text-align: center;
 }
 
-/* The toast stays click-through so it never blocks the page under it; only
- * the button inside it takes presses. */
-.toast-action {
-  pointer-events: auto;
-  margin-left: 12px;
-  padding: 4px 10px;
-  min-height: 0;
-  font: inherit;
-  font-weight: 640;
-  color: inherit;
-  background: rgba(255, 255, 255, 0.16);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
+/* Notices are the system's ds-toaster, at the bottom corner. On a phone,
+ * while the answer bar is docked at the bottom, they sit above it rather
+ * than over it. */
+body:has(.mini-answer.is-shown) .ds-toaster {
+  inset-block-end: calc(var(--ds-space-4) + 52px + env(safe-area-inset-bottom));
 }
 
-.toast-action:hover {
-  background: rgba(255, 255, 255, 0.26);
-}
-
-.toast {
-  position: fixed;
-  left: 50%;
-  bottom: calc(22px + env(safe-area-inset-bottom));
-  transform: translate(-50%, 14px);
-  background: var(--text);
-  color: var(--surface);
-  padding: 10px 16px;
-  border-radius: 999px;
-  font-size: 0.85rem;
-  font-weight: 520;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.18s ease, transform 0.18s ease;
-  z-index: 60;
-}
-
-.toast.is-shown {
-  opacity: 1;
-  transform: translate(-50%, 0);
+@media (min-width: 940px) {
+  body:has(.mini-answer.is-shown) .ds-toaster {
+    inset-block-end: var(--ds-space-4);
+  }
 }
 
 .visually-hidden {
@@ -1346,19 +1160,12 @@ details.notes-block li {
   border: 0;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  * {
-    transition-duration: 0.01ms !important;
-  }
-}
-
 @media print {
   .panel--inputs .actions,
-  .toast {
+  .ds-toaster {
     display: none;
   }
   .panel {
-    box-shadow: none;
     break-inside: avoid;
   }
 }
@@ -1383,11 +1190,10 @@ details.notes-block li {
   align-items: baseline;
   padding: 9px max(14px, env(safe-area-inset-left))
     calc(9px + env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-right));
-  background: color-mix(in srgb, var(--surface) 92%, transparent);
-  backdrop-filter: blur(8px);
-  border-top: 1px solid var(--border-strong);
+  background: var(--ds-surface-overlay);
+  border-top: var(--ds-space-hairline) solid var(--ds-line-strong);
   pointer-events: none;
-  font-size: 0.9rem;
+  font: var(--ds-text-body);
 }
 
 .mini-answer.is-shown {
@@ -1395,9 +1201,10 @@ details.notes-block li {
 }
 
 .mini-answer .mini-value {
+  font-family: var(--display);
   font-weight: 680;
   font-size: 1.15rem;
-  color: var(--force);
+  color: var(--text);
   font-variant-numeric: tabular-nums;
 }
 
@@ -1407,8 +1214,8 @@ details.notes-block li {
 
 .mini-answer .mini-badge {
   margin-left: auto;
-  font-size: 0.78rem;
-  font-weight: 620;
+  font: var(--ds-text-control);
+  font-weight: var(--ds-weight-semibold);
   white-space: nowrap;
 }
 
@@ -1430,11 +1237,8 @@ details.notes-block li {
 
 .presets-label {
   margin: 0 0 8px;
-  font-size: 0.78rem;
-  font-weight: 650;
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
-  color: var(--muted);
+  font: var(--ds-text-title);
+  color: var(--text);
 }
 
 .presets {
@@ -1443,43 +1247,23 @@ details.notes-block li {
   gap: 7px;
 }
 
-.preset-chip {
-  width: auto;
-  min-height: 44px;
-  padding: 6px 12px;
-  font-size: 0.88rem;
-  font-weight: 600;
+/* ds-btn, two lines tall: the thing, and what it is. The one the canvas is
+ * wearing is aria-pressed, which ds-btn draws as selected. */
+.ds-btn.preset-chip {
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 0;
+  padding: 4px 12px;
   line-height: 1.2;
   text-align: left;
-  color: var(--text);
-  background: var(--surface-2);
-  border: 1px solid var(--border-strong);
-  border-radius: 999px;
-  cursor: pointer;
+  font-weight: var(--ds-weight-semibold);
 }
 
 .preset-chip span {
   display: block;
-  font-size: 0.72rem;
-  font-weight: 400;
+  font: var(--ds-text-caption);
   color: var(--muted);
-}
-
-.preset-chip:hover {
-  border-color: var(--force);
-  color: var(--force);
-}
-
-.preset-chip:hover span {
-  color: inherit;
-}
-
-/* The chip whose artwork the canvas is currently wearing. Pressing it again
- * takes the costume off, so it needs to read as a state, not just a button. */
-.preset-chip[aria-pressed="true"] {
-  border-color: var(--force);
-  box-shadow: inset 0 0 0 1px var(--force);
-  color: var(--force);
 }
 
 .preset-chip[aria-pressed="true"] span {

@@ -17,23 +17,40 @@ import { fileURLToPath } from 'node:url';
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (rel) => readFileSync(join(ROOT, rel), 'utf8');
 
-/* The stylesheet points at the font file beside it, which is no use to a copy
- * of this page sitting on its own in someone's downloads folder. Inlined as a
- * data URI so the single file carries its own typography — about 47 KB of
- * base64, against a page that would otherwise silently fall back to whatever
- * form font the reader's operating system uses. */
-const FONT = 'fonts/archivo-var-latin.woff2';
+/* The stylesheet points at the font files beside it, which are no use to a
+ * copy of this page sitting on its own in someone's downloads folder. Each is
+ * inlined as a data URI so the single file carries its own typography —
+ * Archivo and IBM Plex, about 150 KB of base64, against a page that would
+ * otherwise silently fall back to whatever form font the reader's operating
+ * system uses. */
+const FONTS = [
+  'archivo-var-latin.woff2',
+  'ibm-plex-sans-var-latin.woff2',
+  'ibm-plex-mono-400-latin.woff2',
+  'ibm-plex-mono-600-latin.woff2'
+];
 
-function inlineFont(sheet) {
-  const url = /url\(["']?\.\.\/fonts\/archivo-var-latin\.woff2["']?\)/;
-  if (!url.test(sheet)) {
-    throw new Error('no font url found in the stylesheet — has the @font-face moved?');
+function inlineFonts(sheet) {
+  for (const file of FONTS) {
+    const url = new RegExp(`url\\(["']?\\.\\./fonts/${file.replace(/[.]/g, '\\.')}["']?\\)`);
+    if (!url.test(sheet)) {
+      throw new Error(`no url for fonts/${file} found in the stylesheet — has the @font-face moved?`);
+    }
+    const data = readFileSync(join(ROOT, 'fonts', file)).toString('base64');
+    sheet = sheet.replace(url, `url("data:font/woff2;base64,${data}")`);
   }
-  const data = readFileSync(join(ROOT, FONT)).toString('base64');
-  return sheet.replace(url, `url("data:font/woff2;base64,${data}")`);
+  return sheet;
 }
 
-const css = inlineFont(read('src/styles.css'));
+/* The design system's stylesheets come first, in the order the page links
+ * them, then the app's own; one style block, which the fragment needs. */
+const SHEETS = ['src/ds/tokens.css', 'src/ds/base.css', 'src/ds/components.css', 'src/styles.css'];
+/* Comments are dropped on the way in. They are for whoever edits the
+ * sources, they are a fair part of the design system's sheets, and theirs
+ * show markup tags in examples, which the fragment checks below would read as
+ * a document wrapper. Nothing in the sheets puts "/*" inside a string. */
+const stripComments = (sheet) => sheet.replace(/\/\*[\s\S]*?\*\//g, '');
+const css = inlineFonts(SHEETS.map((path) => stripComments(read(path))).join('\n'));
 const SCRIPTS = ['src/physics.js', 'src/ledwall.js', 'src/sim.js', 'src/app.js'];
 
 /* A closing </script> anywhere inside inline JS would end the block early.
@@ -48,7 +65,13 @@ function guardInline(source, label) {
 
 let html = read('index.html');
 
-// swap the stylesheet link for the stylesheet
+// swap the stylesheet links for the one style block
+html = html.replace(/[ \t]*<!-- The shared design system[^>]*-->\n?/, '');
+for (const path of SHEETS.slice(0, -1)) {
+  const link = new RegExp(`[ \\t]*<link rel="stylesheet" href="${path.replace(/[/.]/g, '\\$&')}"[^>]*>\\n?`);
+  if (!link.test(html)) throw new Error(`no stylesheet link found for ${path}`);
+  html = html.replace(link, '');
+}
 html = html.replace(
   /[ \t]*<link rel="stylesheet" href="src\/styles\.css"[^>]*>\n?/,
   `    <style>\n${css}\n    </style>\n`
@@ -75,7 +98,7 @@ html = html.replace(
   '      <p class="colophon">One self-contained file — it works with no connection at all.</p>\n'
 );
 
-for (const leftover of ['src/styles.css', ...SCRIPTS, 'manifest.webmanifest']) {
+for (const leftover of [...SHEETS, ...SCRIPTS, 'manifest.webmanifest']) {
   if (html.includes(leftover)) {
     throw new Error(`bundle still references ${leftover} — a replacement pattern missed`);
   }

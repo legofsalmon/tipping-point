@@ -64,13 +64,22 @@ because that's what service workers require. Any static host will do — see
 
 ```sh
 npm run serve     # http://localhost:8080, with the service worker working
-npm test          # the physics test suite
+npm test          # the physics tests, and that src/ds is as vendored
 npm run build     # bundle everything into dist/tipping-point.html
 npm run icons     # regenerate the app icons from tools/make-icons.mjs
+npm run ds:sync   # re-vendor the design system from ../design-system
+npm run ds:check  # is src/ds behind ../design-system?
 ```
 
 There are no dependencies to install. Node 20 or newer is needed for the tests
 and the tools; the app itself is plain browser JavaScript.
+
+The look comes from the studio's shared design system, vendored into
+`src/ds/` (its tokens, page defaults and components) and never edited there:
+a change to it is a change to the design system. `src/styles.css` holds this
+app's own names, each pointing at one of the system's roles, and the one
+colour that is its own, `--force`, for the forces it draws. The fonts are
+Archivo and IBM Plex, in `fonts/`, so it needs no connection.
 
 `npm run build` produces **one self-contained HTML file** with the CSS and JS
 inlined. Mail it to yourself, drop it in a shared folder, keep it on a USB
