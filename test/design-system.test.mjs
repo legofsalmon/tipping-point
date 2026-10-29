@@ -5,14 +5,13 @@
  * untouched since. Each copy opens with a stamp: the version, the file, and a
  * hash of everything after the stamp line. A hand edit there is a fix the
  * design-system repo should get, and the next `npm run ds:sync` would
- * silently drop it. Whether a copy is BEHIND the design system needs a
- * checkout of that private repo (`npm run ds:check`); whether it was edited
- * here does not, so CI holds this half, with the rest of what the app has to
- * keep true for the system to work.
+ * silently drop it. The design system's checker (tools/ds-check.mjs,
+ * vendored too) catches that from the stamp alone; `npm run ds:check`, in
+ * CI, also says when a copy is behind the published system. These tests hold
+ * the rest of what the app has to keep true for the system to work.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createHash } from 'node:crypto';
 import { readFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -21,26 +20,14 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (rel) => readFileSync(join(ROOT, rel), 'utf8');
 const SHEETS = ['tokens.css', 'base.css', 'components.css'];
 
-test('src/ds holds the three stylesheets, as vendored, at one version', () => {
+test('src/ds holds the three stylesheets, as vendored', async () => {
   assert.deepEqual(readdirSync(join(ROOT, 'src/ds')).sort(), [...SHEETS].sort());
-  const versions = new Set();
-  for (const file of SHEETS) {
-    const text = read(`src/ds/${file}`);
-    const newline = text.indexOf('\n');
-    const stamp = /@letissier\/design-system (\S+) · (\S+) · sha256-([0-9a-f]{16}) · /.exec(
-      text.slice(0, newline)
-    );
-    assert.ok(stamp, `${file} carries no stamp: src/ds holds only what \`npm run ds:sync\` writes`);
-    assert.equal(stamp[2], file);
-    const sum = createHash('sha256').update(text.slice(newline + 1)).digest('hex').slice(0, 16);
-    assert.equal(
-      sum,
-      stamp[3],
-      `${file} was edited by hand: make the change in the design-system repo, then \`npm run ds:sync\``
-    );
-    versions.add(stamp[1]);
-  }
-  assert.equal(versions.size, 1, `mixed versions (${[...versions].join(', ')}): run \`npm run ds:sync\``);
+  // the design system's own checker, vendored in tools/: a copy edited by
+  // hand, or a stamp taken off, fails (whether it is behind is `npm run ds:check`)
+  const { main } = await import('../tools/ds-check.mjs');
+  const said = [];
+  const code = await main(['src/ds', 'tools', '--offline'], { cwd: ROOT, env: {}, log: () => {}, warn: (l) => said.push(l) });
+  assert.equal(code, 0, `${said.join('\n')}\nmake the change in the design-system repo, then \`npm run ds:sync\``);
 });
 
 test('every --ds- role the app reads is one tokens.css defines', () => {

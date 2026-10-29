@@ -18,6 +18,10 @@ jobs:
       - name: Physics tests, and the design system as vendored
         run: npm test
 
+      # warns when src/ds is behind the published design system
+      - name: The design system as vendored, and whether it is current
+        run: npm run ds:check
+
       - name: Single-file bundle builds
         run: npm run build
 
