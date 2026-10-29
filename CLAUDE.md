@@ -29,9 +29,9 @@ against), `navigation.md`, `states.md`, `components.md` and `motion.md`.
   content, and meanings only this app has.
 
 tipping-point takes the whole system: `src/ds/` holds tokens.css, base.css and
-components.css as `npm run ds:sync` vendors them (`npm run ds:check` says
-whether they are behind; `test/design-system.test.mjs` fails CI on a hand
-edit), the fields, buttons, checks, slider, notices and toaster are the
+components.css as `npm run ds:sync` vendors them (`npm run ds:check`, the
+system's own checker in `tools/ds-check.mjs`, runs in CI: a hand edit fails,
+behind warns), the fields, buttons, checks, slider, notices and toaster are the
 system's components, and the page is `data-theme="auto"
 data-density="touch"`. Its own names in `src/styles.css` point at roles. Its
 own meaning, `--force` for the applied force, is content: the arrows and

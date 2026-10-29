@@ -68,7 +68,7 @@ npm test          # the physics tests, and that src/ds is as vendored
 npm run build     # bundle everything into dist/tipping-point.html
 npm run icons     # regenerate the app icons from tools/make-icons.mjs
 npm run ds:sync   # re-vendor the design system from ../design-system
-npm run ds:check  # is src/ds behind ../design-system?
+npm run ds:check  # src/ds as vendored, and is it behind the published system? (CI)
 ```
 
 There are no dependencies to install. Node 20 or newer is needed for the tests

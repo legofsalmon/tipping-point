@@ -10,8 +10,8 @@
     "build": "node tools/build-single-file.mjs --fragment",
     "icons": "node tools/make-icons.mjs",
     "serve": "node tools/serve.mjs",
-    "ds:sync": "node ../design-system/scripts/sync.mjs --to src/ds",
-    "ds:check": "node ../design-system/scripts/sync.mjs --check src/ds"
+    "ds:sync": "node tools/ds-check.mjs src/ds tools --sync --offline",
+    "ds:check": "node tools/ds-check.mjs src/ds tools --reads src"
   },
   "engines": {
     "node": ">=20"
