@@ -1,4 +1,4 @@
-/* @letissier/design-system 0.5.1 · base.css · sha256-8b0a12c79ea6a68c · vendored by scripts/sync.mjs; change the design-system repo, not this copy */
+/* @letissier/design-system 0.12.0 · base.css · sha256-8b0a12c79ea6a68c · vendored by scripts/sync.mjs; change the design-system repo, not this copy */
 /* The page defaults, on top of dist/tokens.css: the ground, the ink, body
    text, the focus ring, and one class per text style. Optional — an app with
    its own reset can take tokens.css alone and borrow from here.
