@@ -1,4 +1,4 @@
-/* @letissier/design-system 0.15.0 · components.css · sha256-7caa3efc5f2a420a · vendored by scripts/sync.mjs; change the design-system repo, not this copy */
+/* @letissier/design-system 0.16.0 · components.css · sha256-7caa3efc5f2a420a · vendored by scripts/sync.mjs; change the design-system repo, not this copy */
 /* The shared components, drawn from the tokens alone: no literal colour, no
    size that is not a token. Plain classes on plain elements, so a vanilla
    page (aoviewer, tipping-point, a router's web panel) can use them as they
