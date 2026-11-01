@@ -1,4 +1,4 @@
-/* @letissier/design-system 0.12.0 · components.css · sha256-da58e099779987e3 · vendored by scripts/sync.mjs; change the design-system repo, not this copy */
+/* @letissier/design-system 0.15.0 · components.css · sha256-7caa3efc5f2a420a · vendored by scripts/sync.mjs; change the design-system repo, not this copy */
 /* The shared components, drawn from the tokens alone: no literal colour, no
    size that is not a token. Plain classes on plain elements, so a vanilla
    page (aoviewer, tipping-point, a router's web panel) can use them as they
@@ -76,7 +76,11 @@
     border-color: var(--ds-accent-hover);
   }
 }
-/* pressed lays the pressed wash over the fill, so it differs from hover as it does on every other button */
+/* pressed lays the pressed wash over the fill, so it differs from hover as it does on every other button;
+   the fill is restated because .ds-btn:active would otherwise grey it where nothing hovers (a touch screen) */
+.ds-btn--primary:active {
+  background-color: var(--ds-accent);
+}
 .ds-btn--primary:active,
 .ds-btn--danger[data-armed='true']:active {
   background-image: linear-gradient(var(--ds-wash-pressed), var(--ds-wash-pressed));
@@ -115,6 +119,28 @@
   background: var(--ds-bad);
   border-color: var(--ds-bad);
   color: var(--ds-bad-on);
+}
+
+/* Hold to fire: what a slip would send to a live output, and arming is too
+   slow for. data-hold on the button, data-holding="true" while it is down; a
+   bar fills along the bottom over --hold (timing.hold unless the app sets it)
+   and the app fires when it is full. Letting go early empties it at once.
+   It is a timer, not decoration, so reduced motion keeps it. */
+.ds-btn[data-hold] {
+  overflow: hidden;
+}
+.ds-btn[data-hold]::after {
+  content: '';
+  position: absolute;
+  inset: auto 0 0;
+  height: var(--ds-space-half);
+  background: currentColor;
+  transform: scaleX(0);
+  transform-origin: left;
+}
+.ds-btn[data-holding='true']::after {
+  transform: scaleX(1);
+  transition: transform var(--hold, var(--ds-timing-hold)) linear;
 }
 
 .ds-btn[aria-pressed='true'] {
@@ -181,9 +207,10 @@
     color: transparent;
   }
 }
+/* opacity, not visibility: a hidden label leaves the button with no name */
 @keyframes ds-busy-hide {
   to {
-    visibility: hidden;
+    opacity: 0;
   }
 }
 @keyframes ds-busy-show {
@@ -357,6 +384,8 @@ select.ds-field {
 /* label above, field, then a hint or an error under it */
 .ds-form-row {
   display: grid;
+  /* one column that may shrink: a field's own width never pushes the row off a phone */
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--ds-space-1);
 }
 .ds-label {
@@ -459,6 +488,20 @@ select.ds-field {
   outline: var(--ds-size-focus-ring) solid var(--ds-focus);
 }
 
+/* Inactive: usable, but doing nothing until another control is up (burn
+   while grade is 0). The value goes secondary and a hint names what it waits
+   on, joined by aria-describedby; it is never greyed as disabled.
+   Stale and unknown: a value the tool cannot vouch for. Stale keeps the last
+   value in tertiary with its age beside it; unknown is "Not known" or a dash.
+   Neutral both: healthy is quiet, but unknown is not healthy (states.md). */
+[data-inactive='true'] {
+  color: var(--ds-ink-secondary);
+}
+[data-fresh='stale'],
+[data-fresh='unknown'] {
+  color: var(--ds-ink-tertiary);
+}
+
 /* Locked: protected, not unavailable. The live output, a locked patch. Unlike
    disabled it can be lifted, by someone, and its value still reads: the
    content stays in ink, the control loses its fill, and a lock mark says why.
@@ -504,7 +547,10 @@ select.ds-field {
   border-radius: var(--ds-radius-control);
   background: var(--ds-surface-inset);
 }
-.ds-seg > button {
+.ds-seg > button,
+.ds-seg > label > span {
+  display: inline-flex;
+  align-items: center;
   min-height: calc(var(--ds-size-control) - 2 * var(--ds-space-half));
   padding: 0 var(--ds-size-control-padding);
   border: 0;
@@ -518,19 +564,45 @@ select.ds-field {
     color var(--ds-duration-fast) var(--ds-ease-standard);
 }
 @media (hover: hover) {
-  .ds-seg > button:hover {
+  .ds-seg > button:hover,
+  .ds-seg > label > input:not(:checked):hover + span {
     background: var(--ds-wash-hover);
     color: var(--ds-ink-primary);
   }
 }
 .ds-seg > button[aria-pressed='true'],
-.ds-seg > button[aria-checked='true'] {
+.ds-seg > button[aria-checked='true'],
+.ds-seg > label > input:checked + span {
   background: var(--ds-accent-soft);
   color: var(--ds-accent-ink);
   box-shadow: inset 0 0 0 var(--ds-space-hairline) var(--ds-accent);
 }
-.ds-seg > button:not([aria-pressed='true'], [aria-checked='true']):active {
+.ds-seg > button:not([aria-pressed='true'], [aria-checked='true']):active,
+.ds-seg > label > input:not(:checked):active + span {
   background: var(--ds-wash-pressed);
+}
+/* On native radios, for a page that works without script:
+   <fieldset class="ds-seg"><legend class="ds-visually-hidden">View</legend>
+     <label><input type="radio" name="view" checked><span>Rig</span></label> …</fieldset>
+   The input lies invisibly over its segment; the browser gives the arrows. */
+fieldset.ds-seg {
+  margin: 0;
+  border: 0;
+}
+.ds-seg > label {
+  position: relative;
+  display: inline-flex;
+}
+.ds-seg > label > input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.ds-seg > label > input:focus-visible + span {
+  outline: var(--ds-size-focus-ring) solid var(--ds-focus);
+  outline-offset: var(--ds-space-half);
 }
 
 /* ---------- switch ----------
@@ -550,7 +622,7 @@ select.ds-field {
 }
 .ds-switch > input {
   --track-h: var(--ds-size-control-sm);
-  --track-w: calc(var(--track-h) * 1.625);
+  --track-w: var(--ds-size-switch-track);
   --edge: var(--ds-space-half);
   --handle: calc(var(--track-h) * 0.5);
   --halo: calc(var(--track-h) * 1.25);
@@ -911,6 +983,35 @@ select.ds-field {
   color: var(--ds-bad-ink);
 }
 
+/* A fact or a tag, not a state: sentence case, the caption face, and it
+   wraps, because a fact can be a sentence. */
+.ds-chip--tag {
+  min-height: 0;
+  padding-block: var(--ds-space-half);
+  font: var(--ds-text-caption);
+  letter-spacing: normal;
+  text-transform: none;
+  white-space: normal;
+}
+/* Present but not active: "heard, not talking". The solid chip is active. */
+.ds-chip--idle {
+  border: var(--ds-space-hairline) dashed var(--ds-line-control);
+  background: transparent;
+}
+/* A chip that leads: a button that goes to the first row with its issue. */
+button.ds-chip {
+  border: 0;
+  cursor: pointer;
+}
+@media (hover: hover) {
+  button.ds-chip:hover {
+    background-image: linear-gradient(var(--ds-wash-hover), var(--ds-wash-hover));
+  }
+}
+button.ds-chip:active {
+  background-image: linear-gradient(var(--ds-wash-pressed), var(--ds-wash-pressed));
+}
+
 .ds-dot {
   display: inline-block;
   flex: none;
@@ -935,6 +1036,13 @@ select.ds-field {
 .ds-dot--off {
   background: transparent;
   box-shadow: inset 0 0 0 var(--ds-space-hairline) var(--ds-ink-disabled);
+}
+/* hollow with a dotted edge: never read, or not reachable (states.md, Unknown) */
+.ds-dot[data-fresh='unknown'],
+.ds-dot--unknown {
+  background: transparent;
+  box-shadow: none;
+  border: var(--ds-space-hairline) dotted var(--ds-ink-tertiary);
 }
 
 /* ---------- panel ----------
@@ -1004,8 +1112,9 @@ select.ds-field {
 }
 
 /* A list in chunks: a subheader names each group and stays in view while its
-   rows scroll under it. Put the subheader in its own <li role="presentation">
-   or, for a listbox, give each group role="group" aria-labelledby the head.
+   rows scroll under it. In a list of links the subheader is its own <li> (a
+   list may hold only list items, so no role on it); in a listbox, give each
+   group role="group" aria-labelledby the head.
    <li class="ds-list__head" id="g-fohl">FOH left</li> */
 .ds-list__head {
   position: sticky;
@@ -1153,6 +1262,29 @@ select.ds-field {
 }
 .ds-table tbody tr[aria-selected='true'] td:first-child {
   box-shadow: inset var(--ds-space-half) 0 0 var(--ds-accent);
+}
+
+/* ---------- sideways scroll ----------
+   <div class="ds-scroll-x" tabindex="0" role="region" aria-label="Patch"><table class="ds-table">…</table></div>
+   Whichever edge has more to scroll is shaded, and the shade goes at the
+   end. Two covers in the surface's colour scroll with the content and hide
+   the shades, fixed to the scroller, when an edge is reached. Set --scroll-bg
+   to the surface under it. Nothing moves. */
+.ds-scroll-x {
+  --scroll-bg: var(--ds-surface-panel);
+  --shade: var(--ds-line-strong);
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  background:
+    linear-gradient(to right, var(--scroll-bg) 40%, transparent) left / var(--ds-space-8) 100% no-repeat local,
+    linear-gradient(to left, var(--scroll-bg) 40%, transparent) right / var(--ds-space-8) 100% no-repeat local,
+    linear-gradient(to right, var(--shade), transparent) left / var(--ds-space-3) 100% no-repeat scroll,
+    linear-gradient(to left, var(--shade), transparent) right / var(--ds-space-3) 100% no-repeat scroll,
+    var(--scroll-bg);
+}
+.ds-scroll-x:focus-visible {
+  outline: var(--ds-size-focus-ring) solid var(--ds-focus);
+  outline-offset: var(--ds-space-half);
 }
 
 /* ---------- tabs ---------- */
@@ -1433,7 +1565,7 @@ select.ds-field {
 }
 .ds-check > input,
 .ds-radio > input {
-  --box: calc(var(--ds-size-control-sm) * 0.75);
+  --box: var(--ds-size-check);
   --edge: var(--ds-space-half);
   --halo: calc(var(--box) * 2);
   appearance: none;
@@ -3356,6 +3488,11 @@ select.ds-field {
   width: auto;
   height: var(--ds-space-half);
 }
+/* quiet: for reference, outside any budget anyone watches; never turns */
+.ds-meter--quiet .ds-meter__fill {
+  background: var(--ds-ink-tertiary);
+}
+
 /* off: not sending. The track alone, and the words say so */
 .ds-meter[aria-disabled='true'] .ds-meter__fill,
 .ds-meter[aria-disabled='true'] .ds-meter__peak {
